@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>h3chain — MiniMax H3 无限长视频生成</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+    --ok: #3fb950; --warn: #d29922; --err: #f85149;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    padding: 24px; max-width: 1080px; margin: 0 auto;
+  }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  h1 .badge { font-size: 12px; color: var(--accent); border: 1px solid var(--accent);
+              border-radius: 10px; padding: 2px 8px; margin-left: 8px; vertical-align: middle; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--border);
+           border-radius: 8px; padding: 16px; }
+  .panel h2 { font-size: 14px; color: var(--muted); margin-bottom: 12px;
+              text-transform: uppercase; letter-spacing: .5px; }
+  input[type=text] {
+    width: 100%; background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px;
+    font-size: 13px; margin-bottom: 8px;
+  }
+  textarea {
+    width: 100%; height: 380px; background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 10px;
+    font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.5;
+  }
+  button {
+    background: #21262d; color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 14px; font-size: 13px; cursor: pointer;
+    width: 100%; margin-bottom: 6px;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: #1f6feb; border-color: #1f6feb; font-weight: 600; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.row { width: auto; display: inline-block; margin-right: 6px; }
+  ul#projects { list-style: none; max-height: 180px; overflow-y: auto; }
+  ul#projects li {
+    padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 13px;
+    display: flex; justify-content: space-between;
+  }
+  ul#projects li:hover { background: var(--bg); }
+  ul#projects li.active { background: #1c2940; outline: 1px solid var(--accent); }
+  .clips { margin-top: 12px; }
+  .clip-row {
+    display: flex; gap: 10px; align-items: center; padding: 8px 10px;
+    border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .clip-row .id { font-family: ui-monospace, monospace; min-width: 70px; }
+  .clip-row .state { min-width: 90px; font-size: 12px; }
+  .clip-row .state.done { color: var(--ok); }
+  .clip-row .state.pending { color: var(--warn); }
+  .clip-row .dur { color: var(--muted); min-width: 46px; text-align: right; }
+  .clip-row button { width: auto; margin: 0; padding: 4px 10px; font-size: 12px; }
+  #progress {
+    font-size: 13px; color: var(--accent); margin-top: 8px; min-height: 20px;
+    font-family: ui-monospace, monospace;
+  }
+  #log {
+    margin-top: 10px; font-size: 12px; color: var(--muted);
+    max-height: 140px; overflow-y: auto; font-family: ui-monospace, monospace;
+    border-top: 1px dashed var(--border); padding-top: 8px;
+  }
+  #video { width: 100%; margin-top: 12px; border-radius: 6px;
+           background: #000; max-height: 380px; }
+  .hint { color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .err-box { color: var(--err); font-size: 12px; margin-top: 8px;
+             white-space: pre-wrap; font-family: ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<h1>h3chain <span class="badge">无限长视频</span></h1>
+<div class="sub">MiniMax H3 · clip-by-clip 链式生成 · keep/redo 逐段打磨 · 已锁定片段磁盘缓存秒回</div>
+
+<div class="grid">
+  <!-- 左栏：工程管理 -->
+  <div>
+    <div class="panel">
+      <h2>工程</h2>
+      <ul id="projects"></ul>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <input type="text" id="newname" placeholder="新工程名" style="margin-bottom:0;">
+        <button class="row" style="width:auto;" onclick="createProject()">新建</button>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;">
+      <h2>操作</h2>
+      <button class="primary" id="btn-gen" onclick="doGen()">① 生成下一个片段</button>
+      <button onclick="doKeep()">② 满意 → 锁定 (keep)</button>
+      <button onclick="doRedo()">不满意 → 重做 (redo，自动换seed)</button>
+      <button onclick="doExport()">③ 导出全片 (export)</button>
+      <div id="progress"></div>
+      <div id="log"></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;">
+      <h2>提示</h2>
+      <div class="hint">
+        循环：生成 → 看片 → 锁定/重做 → 下一段。<br>
+        已锁定的片段下次直接命中磁盘缓存，不重复计费。<br>
+        story.json 里的 refs 列出参考图文件名（先在 refs/ 放好）。
+      </div>
+    </div>
+  </div>
+
+  <!-- 右栏：story + 片段列表 + 播放器 -->
+  <div>
+    <div class="panel">
+      <h2>story.json <span class="hint" id="story-file"></span></h2>
+      <textarea id="story" spellcheck="false"></textarea>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="row" style="width:auto;" onclick="saveStory()">保存</button>
+        <button class="row" style="width:auto;" onclick="loadStory()">重新加载</button>
+        <span class="hint" id="save-msg" style="align-self:center;"></span>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;">
+      <h2>片段</h2>
+      <div class="clips" id="clips"></div>
+      <div class="err-box" id="err"></div>
+      <video id="video" controls playsinline></video>
+    </div>
+  </div>
+</div>
+
+<script>
+let current = null;     // 当前工程名
+let es = null;          // EventSource
+
+const $ = id => document.getElementById(id);
+
+async function api(path, opts) {
+  const r = await fetch('/api' + path, opts);
+  return r.json();
+}
+
+async function refreshProjects() {
+  const d = await api('/projects');
+  const ul = $('projects');
+  ul.innerHTML = '';
+  for (const p of d.data.projects) {
+    const li = document.createElement('li');
+    li.textContent = p;
+    li.onclick = () => selectProject(p);
+    if (p === current) li.classList.add('active');
+    ul.appendChild(li);
+  }
+}
+
+async function createProject() {
+  const name = $('newname').value.trim();
+  if (!name) return;
+  const d = await api('/projects', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name})});
+  if (!d.ok) { showErr(d); return; }
+  $('newname').value = '';
+  await refreshProjects();
+  selectProject(name);
+}
+
+async function selectProject(name) {
+  current = name;
+  $('story-file').textContent = name + '/story.json';
+  await refreshProjects();
+  await loadStory();
+  await refreshClips();
+  openEvents();
+}
+
+async function loadStory() {
+  if (!current) return;
+  const d = await api(`/projects/${current}/story`);
+  if (!d.ok) { showErr(d); return; }
+  $('story').value = JSON.stringify(d.data.story, null, 2);
+}
+
+async function saveStory() {
+  if (!current) return;
+  let story;
+  try { story = JSON.parse($('story').value); }
+  catch (e) { $('save-msg').textContent = 'JSON 解析失败: ' + e.message; return; }
+  const d = await api(`/projects/${current}/story`, {method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({story})});
+  if (!d.ok) { showErr(d); $('save-msg').textContent = ''; return; }
+  $('save-msg').textContent = '已保存 ✓';
+  setTimeout(() => $('save-msg').textContent = '', 1500);
+  await refreshClips();
+}
+
+async function refreshClips() {
+  if (!current) return;
+  const d = await api(`/projects/${current}/status`);
+  if (!d.ok) { showErr(d); return; }
+  const box = $('clips');
+  box.innerHTML = '';
+  for (const c of d.data.clips) {
+    const row = document.createElement('div');
+    row.className = 'clip-row';
+    const state = document.createElement('span');
+    state.className = 'state ' + (c.validated ? 'done' : 'pending');
+    state.textContent = c.validated ? '✓ 已锁定' : '… 待处理';
+    const id = document.createElement('span');
+    id.className = 'id'; id.textContent = c.id;
+    const dur = document.createElement('span');
+    dur.className = 'dur'; dur.textContent = c.duration + 's';
+    const redo = document.createElement('button');
+    redo.textContent = 'redo';
+    redo.onclick = () => doRedo(c.id);
+    row.append(state, id, dur, redo);
+    box.appendChild(row);
+  }
+  $('progress').textContent = '进度: ' + d.data.validated +
+    (d.data.next_clip ? '  下一待处理: ' + d.data.next_clip : '  全部完成');
+}
+
+function openEvents() {
+  if (es) es.close();
+  if (!current) return;
+  es = new EventSource(`/api/projects/${current}/events`);
+  es.onmessage = ev => {
+    const d = JSON.parse(ev.data);
+    if (d.type === 'progress') {
+      $('progress').textContent =
+        `[${d.kind}] clip ${d.index}/${d.total} — ${d.clip}`;
+      log(`progress: ${d.clip} (${d.index}/${d.total})`);
+    } else if (d.type === 'done') {
+      log('done: ' + JSON.stringify(d));
+      $('progress').textContent = '✓ 完成';
+      refreshClips();
+      if (d.files && d.files.length) playVideo(d.files[d.files.length - 1]);
+      if (d.clip) playVideoFileFor(d.clip);
+    } else if (d.type === 'error') {
+      showErr(d);
+      $('progress').textContent = '✗ 出错';
+    } else if (d.type === 'task_started') {
+      log('task started: ' + d.kind);
+    }
+  };
+}
+
+async function playVideoFileFor(clipId) {
+  // 播放最新产物（gen 单段产物就是最新文件）
+  const d = await api(`/projects/${current}/status`);
+  // outputs listing not exposed; use done.files if present
+}
+
+async function doGen() {
+  if (!current) return;
+  setBusy(true);
+  const d = await api(`/projects/${current}/gen`, {method:'POST'});
+  if (!d.ok) { showErr(d); setBusy(false); return; }
+  if (d.data.message === 'all clips validated' || d.data.next === 'export') {
+    $('progress').textContent = '全部已验证，可直接导出';
+    setBusy(false);
+  }
+  log('gen submitted');
+}
+
+async function doKeep() {
+  if (!current) return;
+  const d = await api(`/projects/${current}/keep?clip=last`, {method:'POST'});
+  if (!d.ok) { showErr(d); return; }
+  log('keep: ' + d.data.kept + ' (' + d.data.validated + ')');
+  await refreshClips();
+}
+
+async function doRedo(clipId) {
+  if (!current) return;
+  const clip = clipId || 'last';
+  const d = await api(`/projects/${current}/redo?clip=${clip}`, {method:'POST'});
+  if (!d.ok) { showErr(d); return; }
+  log(`redo: ${d.data.redone} seed→${d.data.new_seed} (后续 ${d.data.affected} 段作废)`);
+  await refreshClips();
+}
+
+async function doExport() {
+  if (!current) return;
+  setBusy(true);
+  const d = await api(`/projects/${current}/export`, {method:'POST'});
+  if (!d.ok) { showErr(d); setBusy(false); return; }
+  log('export submitted — 未验证片段将逐个补齐后合并全片');
+}
+
+function playVideo(fname) {
+  $('video').src = `/api/projects/${current}/output/${encodeURIComponent(fname)}`;
+  $('video').play().catch(()=>{});
+}
+
+function setBusy(b) {
+  $('btn-gen').disabled = b;
+}
+
+function log(msg) {
+  const el = $('log');
+  const t = new Date().toTimeString().slice(0, 8);
+  el.innerHTML += `[${t}] ${msg}<br>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function showErr(d) {
+  $('err').textContent = (d.error || '') + '\n' + (d.error_detail || d.detail || '');
+  log('error: ' + (d.error || ''));
+}
+
+refreshProjects();
+</script>
+</body>
+</html>

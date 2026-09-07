@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.h3chain/
+output/*.mp4
+refs/*.png
+# runtime artifacts
+src/workspace/
+**/__pycache__/
+.pytest_cache/
+*.log
+.story.lock
+*.json.tmp

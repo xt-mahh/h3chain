@@ -1,0 +1,41 @@
+{
+  "title": "demo — city morning run",
+  "resolution": [
+    768,
+    1344
+  ],
+  "steps": 8,
+  "context_length": "22",
+  "seed_mode": "increment",
+  "prefix": "demo",
+  "models": {},
+  "refs": [
+    "ref_1.png"
+  ],
+  "clips": [
+    {
+      "id": "clip_1",
+      "prompt": "subject_definitions:\n<Picture 1> is a young Chinese woman in a coral running jacket, ponytail, wireless earbuds, energetic and focused.\n\nintegrated_multimodal_description:\nEarly morning on a riverside concrete promenade; the runner in the coral jacket jogs toward camera at a steady pace, breath visible in cool air, soft golden sunrise raking across the water and long shadows stretching over the pavement; the camera tracks backward smoothly at chest height keeping her centered.\n\noverall_soundscape:\nContinuous ambient: light riverside wind, her rhythmic footsteps on concrete, faint distant city hum, birds occasionally.\n\ndialogue_and_sound_effects:\nShe speaks in Mandarin Chinese in a light, breathy voice between breaths: \"今天的第五公里，冲一下。\"\n\nnon_diegetic_music:\nNone. No background music, no score, no melodic instrument of any kind. This clip is delivered dry (dialogue/VO + ambience only); music will be added in post-production.\n\ncamera_and_shot:\nMedium shot, steadicam tracking backward, chest height, 5 seconds.",
+      "duration": 5.0,
+      "seed": 42,
+      "seed_mode": "increment",
+      "validated": false
+    },
+    {
+      "id": "clip_2",
+      "prompt": "subject_definitions:\n<Picture 1> is a young Chinese woman in a coral running jacket, ponytail, wireless earbuds, energetic and focused.\n\nintegrated_multimodal_description:\nSame riverside promenade; the runner now turns at a bend and accelerates, camera cuts to a low side angle at knee height, her shoes striking the pavement, sunrise flare crossing the lens between railings; motion blur on background, her form sharp.\n\noverall_soundscape:\nContinuous ambient: footsteps at a faster rhythm, wind, river water lapping close by.\n\ndialogue_and_sound_effects:\nA short exhale and effort sound from the runner; no words.\n\nnon_diegetic_music:\nNone. No background music, no score, no melodic instrument of any kind. This clip is delivered dry (dialogue/VO + ambience only); music will be added in post-production.\n\ncamera_and_shot:\nLow side tracking shot, knee height, shallow depth, 5 seconds.",
+      "duration": 5.0,
+      "seed": 43,
+      "seed_mode": "increment",
+      "validated": false
+    },
+    {
+      "id": "clip_3",
+      "prompt": "subject_definitions:\n<Picture 1> is a young Chinese woman in a coral running jacket, ponytail, wireless earbuds, energetic and focused.\n\nintegrated_multimodal_description:\nPromenade steps at the end of the riverside path; the runner slows to a walk, hands on hips, catching her breath, city skyline glowing in sunrise haze behind her; camera slowly rises on a gentle crane from behind her shoulder to a wide elevated view of the river city.\n\noverall_soundscape:\nContinuous ambient: her slowing breath, riverside wind, distant traffic under the hum of a waking city.\n\ndialogue_and_sound_effects:\nShe speaks in Mandarin Chinese, satisfied and relaxed: \"值了，回去吃早饭。\"\n\nnon_diegetic_music:\nNone. No background music, no score, no melodic instrument of any kind. This clip is delivered dry (dialogue/VO + ambience only); music will be added in post-production.\n\ncamera_and_shot:\nStart over-shoulder medium, rising crane to wide high angle, 5 seconds.",
+      "duration": 5.0,
+      "seed": 44,
+      "seed_mode": "increment",
+      "validated": false
+    }
+  ]
+}
