@@ -296,6 +296,13 @@ def _build_workflow(story: dict) -> dict:
             "context_length": str(story.get("context_length", "22")),
             "audio_context_length": 0,
             "clips_json": clips_json,
+            "resolution_mode": "manual",
+            "megapixels": round(width * height / 1_000_000, 3),
+            "refs_json": json.dumps(
+                {"version": 2, "refs": story.get("refs", [])[:9]
+                 + [None] * max(0, 9 - len(story.get("refs", [])[:9]))},
+                ensure_ascii=False),
+            "generation_mode": "ref2va",
             "model": ["4", 0], "clip": ["6", 0],
             "vae": ["7", 0], "audio_vae": ["8", 0]}},
         "11": {"class_type": "MiniMaxH3MotionContextDiskFinalDecode", "inputs": {
@@ -307,11 +314,6 @@ def _build_workflow(story: dict) -> dict:
             "autoplay": False,
             "vae": ["7", 0], "audio_vae": ["8", 0]}},
     }
-    for i, ref in enumerate(story.get("refs", [])[:MAX_REFS], start=1):
-        node_id = str(100 + i)
-        prompt[node_id] = {"class_type": "LoadImage",
-                           "inputs": {"image": ref}}
-        prompt["10"]["inputs"][f"ref_{i}"] = [node_id, 0]
     return {"prompt": prompt}
 
 
