@@ -2,25 +2,40 @@
 
 [中文文档](README.md)
 
-Unlimited-length video generation with MiniMax H3 — a thin web app on top of
-ComfyUI's MiniMax H3 Extender chain. Generate clip by clip, keep what you
-like, redo what you don't, then export the whole chain as one video.
+**Genuinely coherent** unlimited-length video generation with MiniMax H3 —
+not clips stitched together, but a true continuation: every clip grows out
+of the previous one's motion-context latent, so characters, motion, camera
+and lighting carry on seamlessly. Generate clip by clip, keep or redo,
+then export one seamless long video.
 
 ```
- gen → watch → keep ─┬─ gen → ... → export (merge all)
+ gen → watch → keep ─┬─ gen (continues from previous latent) → ... → export
                     └─ redo (fresh seed) → gen → ...
 ```
 
 Locked clips come back from the Extender disk cache in seconds, so you only
 ever pay for the clips you reject.
 
-## What it is
+## Why "genuinely coherent"
 
-- **Unlimited length**: H3 chains clips via motion-context latents on disk.
-  h3chain drives that chain clip-by-clip with a simple loop: generate →
-  review → keep/redo.
-- **Simple web UI** (port 6008): story.json editor, clip list, live SSE
-  progress, inline player. No ComfyUI graph editing needed.
+Most long-video pipelines are **segment generation + first/last-frame
+locking**: each clip is generated independently and force-aligned by its
+boundary frames — motion "connects", but rhythm, physical momentum and
+lighting continuity break at every seam.
+
+h3chain takes the other road: the MiniMax H3 Extender caches the previous
+clip's **motion-context latent** to disk, and the next clip samples directly
+on top of it — not aligned, but **continued**. A run keeps running with real
+momentum, a turn carries inertia, sunset light dims across clips.
+
+- **Latent-level continuation**: context passes in latent space, not
+  pixel-level frame locking
+- **Physical & rhythm continuity**: motion momentum, camera movement and
+  lighting transition naturally across clips
+- **Unlimited length**: disk caching keeps the chain arbitrarily long
+  without degradation
+- **Simple web UI** (port 6008): per-clip prompt editor, reference upload,
+  live SSE progress, inline player.
 - **24 GB friendly**: quantized weight set (int8 UNet + nvfp4 text encoder),
   runs on a single RTX 4090.
 - **Cache-aware redo**: redo automatically rotates the seed — submitting the
