@@ -812,6 +812,47 @@ def api_events(project: str):
     return StreamingResponse(sse(), media_type="text/event-stream")
 
 
+@app.delete("/api/projects/{project}")
+def api_delete_project(project: str):
+    try:
+        pdir = _project_dir(project)
+    except H3ChainError as e:
+        return _api_error_response(e)
+    active = TASKS.snapshot_active(project)
+    if active:
+        return _api_error_response(SubmissionError(
+            "a generation task is running for this project",
+            "Wait for it to finish before deleting."))
+    import shutil
+    shutil.rmtree(pdir)
+    return {"ok": True, "data": {"deleted": project}}
+
+
+@app.get("/api/projects/{project}/refs")
+def api_list_refs(project: str):
+    try:
+        pdir = _project_dir(project)
+    except H3ChainError as e:
+        return _api_error_response(e)
+    refs_dir = pdir / "refs"
+    files = sorted(f.name for f in refs_dir.glob("*")
+                   if f.suffix.lower() in (".png", ".jpg", ".jpeg")) if refs_dir.exists() else []
+    return {"ok": True, "data": {"files": files}}
+
+
+@app.get("/api/projects/{project}/refs/{file}")
+def api_view_ref(project: str, file: str):
+    try:
+        pdir = _project_dir(project)
+    except H3ChainError as e:
+        return _api_error_response(e)
+    src = pdir / "refs" / Path(file).name
+    if not src.exists() or src.suffix.lower() not in (".png", ".jpg", ".jpeg"):
+        raise HTTPException(404, f"ref '{file}' not found")
+    mime = "image/png" if src.suffix.lower() == ".png" else "image/jpeg"
+    return FileResponse(src, media_type=mime)
+
+
 @app.get("/api/projects/{project}/output")
 def api_list_output(project: str):
     try:

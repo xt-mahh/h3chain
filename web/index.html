@@ -20,9 +20,26 @@
   h1 .badge { font-size: 12px; color: var(--accent); border: 1px solid var(--accent);
               border-radius: 10px; padding: 2px 8px; margin-left: 8px; vertical-align: middle; }
   .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
-  .grid { display: grid; grid-template-columns: 330px 1fr; gap: 16px; }
+  .grid { display: grid; grid-template-columns: 360px 1fr; gap: 16px; }
   .panel { background: var(--panel); border: 1px solid var(--border);
            border-radius: 8px; padding: 16px; }
+  #editor-scroll {
+    max-height: calc(100vh - 260px); overflow-y: auto;
+    padding-right: 6px;
+  }
+  #editor-scroll::-webkit-scrollbar { width: 8px; }
+  #editor-scroll::-webkit-scrollbar-thumb {
+    background: var(--border); border-radius: 4px; }
+  #reflist li img.thumb {
+    width: 52px; height: 52px; object-fit: cover; border-radius: 4px;
+    cursor: zoom-in; display: block;
+  }
+  #ref-modal {
+    display: none; position: fixed; inset: 0; z-index: 50;
+    background: rgba(0,0,0,.82); align-items: center; justify-content: center;
+    cursor: zoom-out;
+  }
+  #ref-modal img { max-width: 94vw; max-height: 94vh; border-radius: 8px; }
   .panel h2 { font-size: 14px; color: var(--muted); margin-bottom: 12px;
               text-transform: uppercase; letter-spacing: .5px; }
   input[type=text], input[type=number] {
@@ -46,12 +63,19 @@
   button:disabled { opacity: .45; cursor: not-allowed; }
   button.row { width: auto; display: inline-block; margin-right: 6px; }
   button.mini { width: auto; padding: 3px 10px; font-size: 12px; margin: 0; }
-  ul#projects { list-style: none; max-height: 170px; overflow-y: auto; }
+  ul#projects { list-style: none; max-height: 200px; overflow-y: auto; }
   ul#projects li {
-    padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 13px;
+    padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px;
+    display: flex; justify-content: space-between; align-items: center; gap: 6px;
   }
   ul#projects li:hover { background: var(--bg); }
   ul#projects li.active { background: #1c2940; outline: 1px solid var(--accent); }
+  ul#projects li .pdel {
+    color: var(--err); cursor: pointer; font-size: 12px;
+    padding: 2px 6px; border-radius: 4px; display: none;
+  }
+  ul#projects li:hover .pdel { display: inline; }
+  ul#projects li .pdel:hover { background: rgba(248,81,73,.15); }
   #reflist { list-style: none; margin: 8px 0; }
   #reflist li {
     font-size: 12px; color: var(--muted); padding: 4px 8px;
@@ -143,6 +167,13 @@
       <div id="progress"></div>
       <div id="log"></div>
     </div>
+
+    <div class="panel" style="margin-top:16px;">
+      <h2>片段进度</h2>
+      <div class="clips" id="clips"></div>
+      <div class="err-box" id="err"></div>
+      <video id="video" controls playsinline></video>
+    </div>
   </div>
 
   <!-- 右栏：分段编辑 + 片段列表 + 播放器 -->
@@ -168,7 +199,7 @@
         <button class="mini primary" onclick="saveStory()">保存全部</button>
         <span class="hint" id="save-msg"></span>
       </div>
-      <div class="clips" id="editor"></div>
+      <div id="editor-scroll"><div class="clips" id="editor"></div></div>
       <details class="raw">
         <summary>高级：story.json 源码模式</summary>
         <textarea id="story-raw" spellcheck="false"></textarea>
@@ -178,14 +209,11 @@
         </div>
       </details>
     </div>
-
-    <div class="panel" style="margin-top:16px;">
-      <h2>片段进度</h2>
-      <div class="clips" id="clips"></div>
-      <div class="err-box" id="err"></div>
-      <video id="video" controls playsinline></video>
-    </div>
   </div>
+</div>
+
+<div id="ref-modal" onclick="this.style.display='none'">
+  <img id="ref-modal-img" alt="ref preview">
 </div>
 
 <script>
@@ -206,11 +234,27 @@ async function refreshProjects() {
   ul.innerHTML = '';
   for (const p of d.data.projects) {
     const li = document.createElement('li');
-    li.textContent = p;
-    li.onclick = () => selectProject(p);
+    const name = document.createElement('span');
+    name.textContent = p;
+    name.style.flex = '1';
+    name.onclick = () => selectProject(p);
+    const del = document.createElement('span');
+    del.className = 'pdel'; del.textContent = '✕';
+    del.title = '删除工程（含 refs/产物，不可恢复）';
+    del.onclick = ev => { ev.stopPropagation(); deleteProject(p); };
+    li.append(name, del);
     if (p === current) li.classList.add('active');
     ul.appendChild(li);
   }
+}
+
+async function deleteProject(name) {
+  if (!confirm(`删除工程「${name}」？\nrefs、story、产物全部删除，不可恢复。`)) return;
+  const d = await api(`/projects/${name}`, {method:'DELETE'});
+  if (!d.ok) { showErr(d); return; }
+  log('project deleted: ' + name);
+  if (current === name) { current = null; story = null; }
+  await refreshProjects();
 }
 
 async function createProject() {
@@ -374,29 +418,47 @@ async function saveRaw() {
 
 async function refreshRefs() {
   if (!current) return;
-  const d = await api(`/projects/${current}/story`);
-  if (!d.ok) return;
-  story_refs = d.data.story.refs || [];
+  const d = await api(`/projects/${current}/refs`);
+  const files = d.ok ? d.data.files : [];
+  const ds = await api(`/projects/${current}/story`);
+  story_refs = ds.ok ? (ds.data.story.refs || []) : [];
   if (story) story.refs = story_refs;
   const ul = $('reflist');
   ul.innerHTML = '';
-  if (!story_refs.length) {
+  if (!files.length) {
     const li = document.createElement('li');
     li.textContent = '（还没有参考图）'; li.style.border = 'none';
     ul.appendChild(li);
     return;
   }
-  for (const r of story_refs) {
+  for (const f of files) {
     const li = document.createElement('li');
-    const name = document.createElement('span');
-    name.textContent = r;
+    const thumb = document.createElement('img');
+    thumb.className = 'thumb';
+    thumb.src = `/api/projects/${current}/refs/${encodeURIComponent(f)}`;
+    thumb.onclick = () => showRefFull(f);
+    const info = document.createElement('span');
+    info.style.flex = '1';
+    const nameEl = document.createElement('div');
+    nameEl.textContent = f;
+    const used = story_refs.includes(f);
+    const usedEl = document.createElement('div');
+    usedEl.style.fontSize = '11px';
+    usedEl.style.color = used ? 'var(--ok)' : 'var(--warn)';
+    usedEl.textContent = used ? '✓ 在 story.refs' : '未使用';
+    info.append(nameEl, usedEl);
     const del = document.createElement('span');
-    del.className = 'del'; del.textContent = '✕ 移出';
+    del.className = 'del'; del.textContent = '✕';
     del.title = '从 story.refs 移除（不删文件）';
-    del.onclick = () => removeRef(r);
-    li.append(name, del);
+    del.onclick = () => removeRef(f);
+    li.append(thumb, info, del);
     ul.appendChild(li);
   }
+}
+
+function showRefFull(name) {
+  $('ref-modal-img').src = `/api/projects/${current}/refs/${encodeURIComponent(name)}`;
+  $('ref-modal').style.display = 'flex';
 }
 let story_refs = [];
 
