@@ -33,7 +33,7 @@ h3chain 做的事情很简单：把这条强大的链封装成一个**开箱即�
 ## 快速开始（AutoDL / 任何 ComfyUI 机器）
 
 ```bash
-git clone https://github.com/<you>/h3chain.git
+git clone https://github.com/xt-mahh/h3chain.git
 cd h3chain
 
 bash install.sh            # 自定义节点 + sageattention + 量化权重（约 42 GB）

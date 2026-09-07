@@ -43,7 +43,7 @@ On top of the Extender, this web layer fills in the "easy to use" part:
 ## Quick start (on an AutoDL / any ComfyUI box)
 
 ```bash
-git clone https://github.com/<you>/h3chain.git
+git clone https://github.com/xt-mahh/h3chain.git
 cd h3chain
 
 bash install.sh            # custom nodes + sageattention + quantized weights (~42 GB)
