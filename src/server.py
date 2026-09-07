@@ -277,8 +277,6 @@ def _build_workflow(story: dict) -> dict:
             "lora_name": lora, "strength_model": 1.0, "model": ["2", 0]}},
         "4": {"class_type": "PathchSageAttentionKJ", "inputs": {
             "sage_attention": "auto", "model": ["3", 0]}},
-        "5": {"class_type": "MiniMaxH3MemoryEfficientSageAttentionPatch",
-              "inputs": {"model": ["4", 0]}},
         "6": {"class_type": "CLIPLoader", "inputs": {
             "clip_name": clip_model, "type": "minimax"}},
         "7": {"class_type": "VAELoader", "inputs": {"vae_name": video_vae}},
@@ -292,7 +290,7 @@ def _build_workflow(story: dict) -> dict:
             "context_length": str(story.get("context_length", "22")),
             "audio_context_length": 0,
             "clips_json": clips_json,
-            "model": ["5", 0], "clip": ["6", 0],
+            "model": ["4", 0], "clip": ["6", 0],
             "vae": ["7", 0], "audio_vae": ["8", 0]}},
         "11": {"class_type": "MiniMaxH3MotionContextDiskFinalDecode", "inputs": {
             "cache": ["10", 0], "fps": 24.0,
