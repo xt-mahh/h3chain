@@ -2,40 +2,36 @@
 
 [中文文档](README.md)
 
-**Genuinely coherent** unlimited-length video generation with MiniMax H3 —
-not clips stitched together, but a true continuation: every clip grows out
-of the previous one's motion-context latent, so characters, motion, camera
-and lighting carry on seamlessly. Generate clip by clip, keep or redo,
-then export one seamless long video.
+The [MiniMax H3 Extender](https://github.com/tritant/ComfyUI_MiniMax_H3_Extender)
+is the engine of this project — it achieves genuinely coherent chained
+generation via on-disk motion-context latents: every clip continues from
+the previous one's latent, so characters, motion and lighting carry on
+seamlessly, and the chain can be arbitrarily long. **All credit for that
+capability goes to the Extender's authors.**
+
+What h3chain adds is simple: it wraps that powerful chain into an
+**out-of-the-box web UI** — no node graphs, no hand-written JSON. Create a
+project, upload references, write prompts per clip, then generate, keep or
+redo with one click and export the full video.
 
 ```
- gen → watch → keep ─┬─ gen (continues from previous latent) → ... → export
+ gen → watch → keep ─┬─ gen (Extender continues from previous latent) → ... → export
                     └─ redo (fresh seed) → gen → ...
 ```
 
-Locked clips come back from the Extender disk cache in seconds, so you only
-ever pay for the clips you reject.
+## What h3chain provides
 
-## Why "genuinely coherent"
-
-Most long-video pipelines are **segment generation + first/last-frame
-locking**: each clip is generated independently and force-aligned by its
-boundary frames — motion "connects", but rhythm, physical momentum and
-lighting continuity break at every seam.
-
-h3chain takes the other road: the MiniMax H3 Extender caches the previous
-clip's **motion-context latent** to disk, and the next clip samples directly
-on top of it — not aligned, but **continued**. A run keeps running with real
-momentum, a turn carries inertia, sunset light dims across clips.
-
-- **Latent-level continuation**: context passes in latent space, not
-  pixel-level frame locking
-- **Physical & rhythm continuity**: motion momentum, camera movement and
-  lighting transition naturally across clips
-- **Unlimited length**: disk caching keeps the chain arbitrarily long
-  without degradation
-- **Simple web UI** (port 6008): per-clip prompt editor, reference upload,
-  live SSE progress, inline player.
+On top of the Extender, this web layer fills in the "easy to use" part:
+- **Zero-barrier web UI** (port 6008): per-clip prompt editor, reference
+  upload with thumbnail preview, live SSE progress, inline player —
+  no ComfyUI involved
+- **Project management**: isolated projects (story/refs/outputs), story.json
+  validation and concurrent-write protection
+- **Per-clip polishing loop**: generate → watch → keep/redo; redo rotates
+  the seed automatically, never silently hitting the Extender disk cache
+- **Resumable export**: locked clips come back from cache in seconds
+  (you only pay for the clips you reject); export fills the gaps and
+  merges the chain.
 - **24 GB friendly**: quantized weight set (int8 UNet + nvfp4 text encoder),
   runs on a single RTX 4090.
 - **Cache-aware redo**: redo automatically rotates the seed — submitting the
@@ -83,10 +79,16 @@ python3 -m pytest tests/    # 30 tests, mock ComfyUI, no GPU needed
 
 ## Credits & licenses
 
+The core capability of this project comes from the following work;
+h3chain only makes it easier to use:
+
+- **[ComfyUI_MiniMax_H3_Extender](https://github.com/tritant/ComfyUI_MiniMax_H3_Extender)**
+  — the real engine of coherent chained generation (on-disk motion-context
+  latents, clip_by_clip mode, FinalDecode merging). Thanks to tritant and
+  contributors.
 - [MiniMax H3](https://github.com/MiniMax-AI/MiniMax-H3) — model weights,
   their license applies (see THIRD_PARTY_NOTICES.md)
-- [ComfyUI_MiniMax_H3_Extender](https://github.com/tritant/ComfyUI_MiniMax_H3_Extender)
-  — the Extender node doing the actual chained generation
-- [ComfyUI](https://github.com/comfyanonymous/ComfyUI) + KJNodes + SageAttention
+- [ComfyUI](https://github.com/comfyanonymous/ComfyUI) + KJNodes + SageAttention +
+  lightx2v (Turbo LoRA) + Comfy-Org (quantized weight repack)
 
-MIT License — see LICENSE.
+h3chain itself is MIT licensed — see LICENSE.

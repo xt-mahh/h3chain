@@ -2,34 +2,33 @@
 
 [English](README_en.md)
 
-基于 MiniMax H3 的**真正连贯的**无限长视频生成——不是把一堆片段拼起来，
-而是每一段都从前一段的运动上下文 latent 中**延续**出来：人物、动作、镜头、
-光影自然延续，看不到接缝。逐 clip 生成，满意就锁定，不满意就重做，
-最后导出一条浑然一体的长片。
+[MiniMax H3 Extender](https://github.com/tritant/ComfyUI_MiniMax_H3_Extender)
+是本项目的核心——它通过磁盘上的运动上下文 latent 实现了真正连贯的链式生成：
+每一段从前一段的 latent 中延续出来，人物、动作、光影自然延续，看不到接缝，
+且链条可以任意长。**这项能力完全来自 Extender 的作者们。**
+
+h3chain 做的事情很简单：把这条强大的链封装成一个**开箱即用的 Web 界面**——
+不用编辑节点图、不用手写 JSON，建工程、传参考图、分段写 prompt，
+点按钮就能逐段生成、锁定、重做，最后导出全片。
 
 ```
- 生成 → 看片 → 锁定 ─┬─ 生成（从上一段 latent 延续）→ ... → 导出（全链一体）
+ 生成 → 看片 → 锁定 ─┬─ 生成（Extender 从上一段 latent 延续）→ ... → 导出
                     └─ 重做（自动换 seed）→ 生成 → ...
 ```
 
-已锁定的 clip 下次直接命中 Extender 磁盘缓存秒回——你只为不满意的片段付费。
+## h3chain 提供了什么
 
-## 为什么是"真连贯"
+在 Extender 之上，这个 Web 封装层补齐了"好用"的部分：
 
-多数长视频方案是**分段生成 + 首尾帧拼接**：每段独立生成，靠最后一帧
-强制对齐下一帧——动作是"接上了"，但运动节奏、物理惯性、光影连续性全断。
-
-h3chain 走的是另一条路：MiniMax H3 Extender 把上一段的**运动上下文 latent
-缓存到磁盘**，下一段直接在这个 latent 上继续采样——不是"对齐"，是**延续**。
-同一段奔跑会真的跑下去，转身有转身的惯性，日落的光线会一段段暗下去。
-
-- **latent 级延续**：上下文在隐空间传递，而非像素级首尾帧锁定
-- **物理与节奏连续**：动作惯性、镜头运动、光影变化跨段自然过渡
-- **无限时长**：磁盘缓存让链条可以任意长，不随段数增加而退化
-- **简单 Web 界面**（6008 端口）：分段 prompt 编辑、参考图上传、SSE 实时进度、内嵌播放器
-- **24G 显存友好**：量化权重组合（int8 UNet + nvfp4 文本编码器），单张 RTX 4090 可跑
-- **缓存感知重做**：redo 自动换 seed，永不静默命中旧缓存
-- **可续跑导出**：已验证 clip 走缓存，export 只补缺的，FinalDecode 合并全链
+- **零门槛 Web 界面**（6008 端口）：分段 prompt 编辑、参考图上传缩略图预览、
+  SSE 实时进度、内嵌播放器——全程不碰 ComfyUI
+- **工程化管理**：多工程隔离（story/refs/产物），story.json 校验与并发写保护
+- **逐段打磨工作流**：生成 → 看片 → keep/redo；redo 自动换 seed，
+  永不静默命中 Extender 磁盘缓存返回旧片段
+- **可续跑导出**：已锁定 clip 走磁盘缓存秒回（只为不满意的片段付费），
+  export 自动补齐缺失段并合并全链
+- **24G 显存友好**：默认量化权重组合（int8 UNet + nvfp4 文本编码器）走
+  AutoDL 公共模型库软链，单张 RTX 4090 可跑，镜像零权重
 
 ## 快速开始（AutoDL / 任何 ComfyUI 机器）
 
@@ -70,10 +69,14 @@ python3 -m pytest tests/    # 30 个测试，mock ComfyUI，无需 GPU
 
 ## 致谢与许可
 
+本项目的核心能力来自以下工作，h3chain 只是把它们变得更易用：
+
+- **[ComfyUI_MiniMax_H3_Extender](https://github.com/tritant/ComfyUI_MiniMax_H3_Extender)**
+  ——真正做连贯链式生成的功臣（运动上下文 latent 磁盘缓存、clip_by_clip 模式、
+  FinalDecode 合并都是它的实现），感谢 tritant 及其贡献者
 - [MiniMax H3](https://github.com/MiniMax-AI/MiniMax-H3)——模型权重，
   遵循其许可（见 THIRD_PARTY_NOTICES.md）
-- [ComfyUI_MiniMax_H3_Extender](https://github.com/tritant/ComfyUI_MiniMax_H3_Extender)
-  ——真正做链式生成的 Extender 节点
-- [ComfyUI](https://github.com/comfyanonymous/ComfyUI) + KJNodes + SageAttention
+- [ComfyUI](https://github.com/comfyanonymous/ComfyUI) + KJNodes + SageAttention +
+  lightx2v（Turbo LoRA）+ Comfy-Org（量化权重复打包）
 
-MIT License——见 LICENSE。
+h3chain 本身以 MIT License 开源——见 LICENSE。
