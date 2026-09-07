@@ -20,12 +20,23 @@
   h1 .badge { font-size: 12px; color: var(--accent); border: 1px solid var(--accent);
               border-radius: 10px; padding: 2px 8px; margin-left: 8px; vertical-align: middle; }
   .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
-  .grid { display: grid; grid-template-columns: 360px 1fr; gap: 16px; }
+  .grid {
+    display: grid;
+    grid-template-columns: 250px minmax(420px, 1fr) 330px;
+    gap: 14px; align-items: start;
+  }
+  .col-left, .col-mid, .col-right { min-width: 0; }
+  .col-left, .col-right { position: sticky; top: 16px; }
+  .col-left { display: flex; flex-direction: column; gap: 14px; }
+  .col-left .panel { margin: 0 !important; }
+  .col-right { display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 32px); overflow-y: auto; }
+  .col-right .panel { margin: 0 !important; flex-shrink: 0; }
+  .col-right #video { position: sticky; }
   .panel { background: var(--panel); border: 1px solid var(--border);
            border-radius: 8px; padding: 16px; }
   #editor-scroll {
-    max-height: calc(100vh - 260px); overflow-y: auto;
-    padding-right: 6px;
+    max-height: calc(100vh - 320px); overflow-y: auto;
+    padding-right: 6px; border-radius: 6px;
   }
   #editor-scroll::-webkit-scrollbar { width: 8px; }
   #editor-scroll::-webkit-scrollbar-thumb {
@@ -135,49 +146,31 @@
 <div class="sub">MiniMax H3 · clip-by-clip 链式生成 · keep/redo 逐段打磨 · 已锁定片段磁盘缓存秒回</div>
 
 <div class="grid">
-  <!-- 左栏：工程 / refs / 操作 -->
-  <div>
+  <!-- 左栏：工程 / refs -->
+  <div class="col-left">
     <div class="panel">
       <h2>工程</h2>
       <ul id="projects"></ul>
-      <div style="display:flex; gap:8px; margin-top:10px;">
+      <div style="display:flex; gap:6px; margin-top:10px;">
         <input type="text" id="newname" placeholder="新工程名" style="margin-bottom:0;">
         <button class="row" style="width:auto;" onclick="createProject()">新建</button>
       </div>
     </div>
 
-    <div class="panel" style="margin-top:16px;">
+    <div class="panel">
       <h2>参考图 (refs)</h2>
       <ul id="reflist"></ul>
       <input type="file" id="reffile" accept=".png,.jpg,.jpeg" multiple
              style="font-size:12px; color:var(--muted); margin-bottom:8px;">
       <button onclick="uploadRefs()">上传参考图</button>
       <div class="hint" style="margin-top:4px;">
-        PNG/JPG ≤ 20MB。文件名即 ref 锚点名（如 ref_1.png）。
-        <span id="ref-msg"></span>
+        PNG/JPG ≤ 20MB。<span id="ref-msg"></span>
       </div>
-    </div>
-
-    <div class="panel" style="margin-top:16px;">
-      <h2>操作</h2>
-      <button class="primary" id="btn-gen" onclick="doGen()">① 生成下一个片段</button>
-      <button onclick="doKeep()">② 满意 → 锁定 (keep)</button>
-      <button onclick="doRedo()">不满意 → 重做 (redo，自动换seed)</button>
-      <button onclick="doExport()">③ 导出全片 (export)</button>
-      <div id="progress"></div>
-      <div id="log"></div>
-    </div>
-
-    <div class="panel" style="margin-top:16px;">
-      <h2>片段进度</h2>
-      <div class="clips" id="clips"></div>
-      <div class="err-box" id="err"></div>
-      <video id="video" controls playsinline></video>
     </div>
   </div>
 
-  <!-- 右栏：分段编辑 + 片段列表 + 播放器 -->
-  <div>
+  <!-- 中栏：分段编辑 -->
+  <div class="col-mid">
     <div class="panel">
       <h2>故事设置 <span class="hint" id="story-file"></span></h2>
       <div class="settings-row">
@@ -208,6 +201,26 @@
           <button class="mini" onclick="saveRaw()">保存源码</button>
         </div>
       </details>
+    </div>
+  </div>
+
+  <!-- 右栏：操作 / 进度 / 播放器 -->
+  <div class="col-right">
+    <div class="panel">
+      <h2>操作</h2>
+      <button class="primary" id="btn-gen" onclick="doGen()">① 生成下一个片段</button>
+      <button onclick="doKeep()">② 满意 → 锁定 (keep)</button>
+      <button onclick="doRedo()">不满意 → 重做 (redo，自动换seed)</button>
+      <button onclick="doExport()">③ 导出全片 (export)</button>
+      <div id="progress"></div>
+      <div id="log"></div>
+    </div>
+
+    <div class="panel">
+      <h2>片段进度</h2>
+      <div class="clips" id="clips"></div>
+      <div class="err-box" id="err"></div>
+      <video id="video" controls playsinline></video>
     </div>
   </div>
 </div>
