@@ -33,7 +33,7 @@ APP_DIR = Path(__file__).resolve().parent
 WEB_DIR = APP_DIR / "web" if (APP_DIR / "web").exists() else APP_DIR.parent / "web"
 
 
-def comfy_output_dir() -> str:
+def _comfy_output_dir() -> str:
     """ComfyUI output dir (default: /root/ComfyUI/output, override via env)."""
     import os as _os
     return _os.environ.get("H3CHAIN_COMFY_OUTPUT", "/root/ComfyUI/output")
@@ -310,7 +310,7 @@ def _build_workflow(story: dict) -> dict:
             "filename_prefix": story.get("prefix", "h3chain"),
             "codec": "H.264", "crf": 17, "preset": "veryfast",
             "audio_bitrate": "192k",
-            "output_directory": comfy_output_dir(),
+            "output_directory": _comfy_output_dir(),
             "autoplay": False,
             "vae": ["7", 0], "audio_vae": ["8", 0]}},
     }
