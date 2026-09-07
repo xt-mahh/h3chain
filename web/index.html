@@ -20,20 +20,21 @@
   h1 .badge { font-size: 12px; color: var(--accent); border: 1px solid var(--accent);
               border-radius: 10px; padding: 2px 8px; margin-left: 8px; vertical-align: middle; }
   .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
-  .grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; }
+  .grid { display: grid; grid-template-columns: 330px 1fr; gap: 16px; }
   .panel { background: var(--panel); border: 1px solid var(--border);
            border-radius: 8px; padding: 16px; }
   .panel h2 { font-size: 14px; color: var(--muted); margin-bottom: 12px;
               text-transform: uppercase; letter-spacing: .5px; }
-  input[type=text] {
+  input[type=text], input[type=number] {
     width: 100%; background: var(--bg); color: var(--text);
-    border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px;
+    border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px;
     font-size: 13px; margin-bottom: 8px;
   }
-  textarea {
-    width: 100%; height: 380px; background: var(--bg); color: var(--text);
+  textarea.prompt {
+    width: 100%; min-height: 170px; background: var(--bg); color: var(--text);
     border: 1px solid var(--border); border-radius: 6px; padding: 10px;
     font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.5;
+    resize: vertical;
   }
   button {
     background: #21262d; color: var(--text); border: 1px solid var(--border);
@@ -44,32 +45,50 @@
   button.primary { background: #1f6feb; border-color: #1f6feb; font-weight: 600; }
   button:disabled { opacity: .45; cursor: not-allowed; }
   button.row { width: auto; display: inline-block; margin-right: 6px; }
-  ul#projects { list-style: none; max-height: 180px; overflow-y: auto; }
+  button.mini { width: auto; padding: 3px 10px; font-size: 12px; margin: 0; }
+  ul#projects { list-style: none; max-height: 170px; overflow-y: auto; }
   ul#projects li {
     padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 13px;
-    display: flex; justify-content: space-between;
   }
   ul#projects li:hover { background: var(--bg); }
   ul#projects li.active { background: #1c2940; outline: 1px solid var(--accent); }
-  .clips { margin-top: 12px; }
-  .clip-row {
-    display: flex; gap: 10px; align-items: center; padding: 8px 10px;
-    border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px;
-    font-size: 13px;
+  #reflist { list-style: none; margin: 8px 0; }
+  #reflist li {
+    font-size: 12px; color: var(--muted); padding: 4px 8px;
+    display: flex; justify-content: space-between; align-items: center;
+    border: 1px dashed var(--border); border-radius: 6px; margin-bottom: 4px;
   }
-  .clip-row .id { font-family: ui-monospace, monospace; min-width: 70px; }
-  .clip-row .state { min-width: 90px; font-size: 12px; }
-  .clip-row .state.done { color: var(--ok); }
-  .clip-row .state.pending { color: var(--warn); }
-  .clip-row .dur { color: var(--muted); min-width: 46px; text-align: right; }
-  .clip-row button { width: auto; margin: 0; padding: 4px 10px; font-size: 12px; }
+  #reflist li .del { color: var(--err); cursor: pointer; padding: 0 4px; }
+  .clips { margin-top: 4px; }
+  .clip-card {
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 12px; background: var(--bg);
+  }
+  .clip-card.locked { border-color: #238636; }
+  .clip-head {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+    font-size: 13px; flex-wrap: wrap;
+  }
+  .clip-head .cid { font-family: ui-monospace, monospace; color: var(--accent); }
+  .clip-head .st { font-size: 12px; }
+  .clip-head .st.done { color: var(--ok); }
+  .clip-head .st.pending { color: var(--warn); }
+  .clip-head .spacer { flex: 1; }
+  .clip-head label { color: var(--muted); font-size: 12px; }
+  .clip-head input[type=number] {
+    width: 74px; margin: 0; padding: 4px 6px; font-size: 12px;
+  }
+  .settings-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .settings-row .fld { flex: 1; min-width: 110px; }
+  .settings-row label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 3px; }
+  .settings-row input { margin-bottom: 0; }
   #progress {
     font-size: 13px; color: var(--accent); margin-top: 8px; min-height: 20px;
     font-family: ui-monospace, monospace;
   }
   #log {
     margin-top: 10px; font-size: 12px; color: var(--muted);
-    max-height: 140px; overflow-y: auto; font-family: ui-monospace, monospace;
+    max-height: 130px; overflow-y: auto; font-family: ui-monospace, monospace;
     border-top: 1px dashed var(--border); padding-top: 8px;
   }
   #video { width: 100%; margin-top: 12px; border-radius: 6px;
@@ -77,6 +96,14 @@
   .hint { color: var(--muted); font-size: 12px; line-height: 1.6; }
   .err-box { color: var(--err); font-size: 12px; margin-top: 8px;
              white-space: pre-wrap; font-family: ui-monospace, monospace; }
+  details.raw { margin-top: 10px; }
+  details.raw summary { color: var(--muted); font-size: 12px; cursor: pointer; }
+  details.raw textarea {
+    width: 100%; min-height: 260px; margin-top: 8px;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 10px;
+    font-family: ui-monospace, monospace; font-size: 11px;
+  }
 </style>
 </head>
 <body>
@@ -84,7 +111,7 @@
 <div class="sub">MiniMax H3 · clip-by-clip 链式生成 · keep/redo 逐段打磨 · 已锁定片段磁盘缓存秒回</div>
 
 <div class="grid">
-  <!-- 左栏：工程管理 -->
+  <!-- 左栏：工程 / refs / 操作 -->
   <div>
     <div class="panel">
       <h2>工程</h2>
@@ -92,6 +119,18 @@
       <div style="display:flex; gap:8px; margin-top:10px;">
         <input type="text" id="newname" placeholder="新工程名" style="margin-bottom:0;">
         <button class="row" style="width:auto;" onclick="createProject()">新建</button>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;">
+      <h2>参考图 (refs)</h2>
+      <ul id="reflist"></ul>
+      <input type="file" id="reffile" accept=".png,.jpg,.jpeg" multiple
+             style="font-size:12px; color:var(--muted); margin-bottom:8px;">
+      <button onclick="uploadRefs()">上传参考图</button>
+      <div class="hint" style="margin-top:4px;">
+        PNG/JPG ≤ 20MB。文件名即 ref 锚点名（如 ref_1.png）。
+        <span id="ref-msg"></span>
       </div>
     </div>
 
@@ -104,31 +143,44 @@
       <div id="progress"></div>
       <div id="log"></div>
     </div>
-
-    <div class="panel" style="margin-top:16px;">
-      <h2>提示</h2>
-      <div class="hint">
-        循环：生成 → 看片 → 锁定/重做 → 下一段。<br>
-        已锁定的片段下次直接命中磁盘缓存，不重复计费。<br>
-        story.json 里的 refs 列出参考图文件名（先在 refs/ 放好）。
-      </div>
-    </div>
   </div>
 
-  <!-- 右栏：story + 片段列表 + 播放器 -->
+  <!-- 右栏：分段编辑 + 片段列表 + 播放器 -->
   <div>
     <div class="panel">
-      <h2>story.json <span class="hint" id="story-file"></span></h2>
-      <textarea id="story" spellcheck="false"></textarea>
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <button class="row" style="width:auto;" onclick="saveStory()">保存</button>
-        <button class="row" style="width:auto;" onclick="loadStory()">重新加载</button>
-        <span class="hint" id="save-msg" style="align-self:center;"></span>
+      <h2>故事设置 <span class="hint" id="story-file"></span></h2>
+      <div class="settings-row">
+        <div class="fld"><label>标题</label>
+          <input type="text" id="s-title"></div>
+        <div class="fld"><label>分辨率 W×H</label>
+          <div style="display:flex; gap:6px;">
+            <input type="number" id="s-w" style="margin-bottom:0;">
+            <input type="number" id="s-h" style="margin-bottom:0;">
+          </div></div>
+        <div class="fld"><label>steps</label>
+          <input type="number" id="s-steps"></div>
+        <div class="fld"><label>context</label>
+          <input type="text" id="s-ctx" placeholder="22"></div>
       </div>
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
+        <h2 style="margin:0; flex:1;">分段 Prompt（每段一个 clip）</h2>
+        <button class="mini" onclick="addClip()">+ 加一段</button>
+        <button class="mini primary" onclick="saveStory()">保存全部</button>
+        <span class="hint" id="save-msg"></span>
+      </div>
+      <div class="clips" id="editor"></div>
+      <details class="raw">
+        <summary>高级：story.json 源码模式</summary>
+        <textarea id="story-raw" spellcheck="false"></textarea>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <button class="mini" onclick="loadRaw()">源码 → 表单</button>
+          <button class="mini" onclick="saveRaw()">保存源码</button>
+        </div>
+      </details>
     </div>
 
     <div class="panel" style="margin-top:16px;">
-      <h2>片段</h2>
+      <h2>片段进度</h2>
       <div class="clips" id="clips"></div>
       <div class="err-box" id="err"></div>
       <video id="video" controls playsinline></video>
@@ -139,6 +191,7 @@
 <script>
 let current = null;     // 当前工程名
 let es = null;          // EventSource
+let story = null;       // 内存中的 story 对象（表单双向绑定）
 
 const $ = id => document.getElementById(id);
 
@@ -174,33 +227,204 @@ async function createProject() {
 
 async function selectProject(name) {
   current = name;
-  $('story-file').textContent = name + '/story.json';
+  $('story-file').textContent = name;
   await refreshProjects();
   await loadStory();
+  await refreshRefs();
   await refreshClips();
   openEvents();
 }
+
+// ---------------------------------------------------------------- story 表单
 
 async function loadStory() {
   if (!current) return;
   const d = await api(`/projects/${current}/story`);
   if (!d.ok) { showErr(d); return; }
-  $('story').value = JSON.stringify(d.data.story, null, 2);
+  story = d.data.story;
+  storyToForm();
+}
+
+function storyToForm() {
+  if (!story) return;
+  $('s-title').value = story.title || '';
+  const [w, h] = story.resolution || [768, 1344];
+  $('s-w').value = w; $('s-h').value = h;
+  $('s-steps').value = story.steps ?? 8;
+  $('s-ctx').value = story.context_length ?? '22';
+  renderEditor();
+  $('story-raw').value = JSON.stringify(story, null, 2);
+}
+
+function renderEditor() {
+  const box = $('editor');
+  box.innerHTML = '';
+  story.clips.forEach((c, i) => {
+    const card = document.createElement('div');
+    card.className = 'clip-card' + (c.validated ? ' locked' : '');
+
+    const head = document.createElement('div');
+    head.className = 'clip-head';
+    const cid = document.createElement('span');
+    cid.className = 'cid'; cid.textContent = c.id;
+    const st = document.createElement('span');
+    st.className = 'st ' + (c.validated ? 'done' : 'pending');
+    st.textContent = c.validated ? '✓ 已锁定' : '… 待处理';
+    const spacer = document.createElement('span');
+    spacer.className = 'spacer';
+    const durLabel = document.createElement('label');
+    durLabel.textContent = '时长s';
+    const dur = document.createElement('input');
+    dur.type = 'number'; dur.step = '0.25'; dur.min = '0.25'; dur.max = '150';
+    dur.value = c.duration;
+    dur.onchange = () => { story.clips[i].duration = parseFloat(dur.value) || 5; };
+    const del = document.createElement('button');
+    del.className = 'mini'; del.textContent = '删';
+    del.onclick = () => { story.clips.splice(i, 1); renumber(); renderEditor(); };
+    head.append(cid, st, spacer, durLabel, dur, del);
+    card.appendChild(head);
+
+    const ta = document.createElement('textarea');
+    ta.className = 'prompt'; ta.spellcheck = false;
+    ta.value = c.prompt;
+    ta.onchange = () => { story.clips[i].prompt = ta.value; };
+    ta.oninput = () => { story.clips[i].prompt = ta.value; };
+    card.appendChild(ta);
+
+    box.appendChild(card);
+  });
+}
+
+function renumber() {
+  story.clips.forEach((c, i) => {
+    const m = c.id.match(/^clip_(\d+)$/);
+    if (m) c.id = `clip_${i + 1}`;
+  });
+}
+
+function addClip() {
+  if (!story) return;
+  const n = story.clips.length + 1;
+  const prev = story.clips[story.clips.length - 1];
+  let prompt = '';
+  if (prev) {
+    // 继承上一段的 subject_definitions（身份锁定）
+    const m = prev.prompt.match(/subject_definitions:[\s\S]*?(?=\n\n\w|\n\n\[|$)/);
+    prompt = (m ? m[0].trim() + '\n\n' : '') +
+      '[integrated_multimodal_description]\n[描述下一段]\n\n' +
+      'overall_soundscape:\n[环境声]\n\n' +
+      'dialogue_and_sound_effects:\n[台词]\n\n' +
+      'non_diegetic_music:\nNone. No background music, no score, no melodic instrument of any kind. This clip is delivered dry (dialogue/VO + ambience only); music will be added in post-production.\n\n' +
+      'camera_and_shot:\n[镜头]';
+  }
+  story.clips.push({id: `clip_${n}`, prompt, duration: 5.0,
+                    seed: 42 + n - 1, seed_mode: 'increment', validated: false});
+  renderEditor();
+  $('story-raw').value = JSON.stringify(story, null, 2);
+}
+
+function formToStory() {
+  story.title = $('s-title').value;
+  story.resolution = [parseInt($('s-w').value) || 768,
+                      parseInt($('s-h').value) || 1344];
+  story.steps = parseInt($('s-steps').value) || 8;
+  story.context_length = $('s-ctx').value || '22';
 }
 
 async function saveStory() {
-  if (!current) return;
-  let story;
-  try { story = JSON.parse($('story').value); }
-  catch (e) { $('save-msg').textContent = 'JSON 解析失败: ' + e.message; return; }
+  if (!current || !story) return;
+  formToStory();
   const d = await api(`/projects/${current}/story`, {method:'PUT',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({story})});
   if (!d.ok) { showErr(d); $('save-msg').textContent = ''; return; }
   $('save-msg').textContent = '已保存 ✓';
   setTimeout(() => $('save-msg').textContent = '', 1500);
+  $('story-raw').value = JSON.stringify(story, null, 2);
   await refreshClips();
 }
+
+function loadRaw() {
+  try { story = JSON.parse($('story-raw').value); }
+  catch (e) { alert('JSON 解析失败: ' + e.message); return; }
+  storyToForm();
+}
+
+async function saveRaw() {
+  let s;
+  try { s = JSON.parse($('story-raw').value); }
+  catch (e) { alert('JSON 解析失败: ' + e.message); return; }
+  story = s;
+  await saveStory();
+}
+
+// ---------------------------------------------------------------- refs 上传
+
+async function refreshRefs() {
+  if (!current) return;
+  const d = await api(`/projects/${current}/story`);
+  if (!d.ok) return;
+  story_refs = d.data.story.refs || [];
+  if (story) story.refs = story_refs;
+  const ul = $('reflist');
+  ul.innerHTML = '';
+  if (!story_refs.length) {
+    const li = document.createElement('li');
+    li.textContent = '（还没有参考图）'; li.style.border = 'none';
+    ul.appendChild(li);
+    return;
+  }
+  for (const r of story_refs) {
+    const li = document.createElement('li');
+    const name = document.createElement('span');
+    name.textContent = r;
+    const del = document.createElement('span');
+    del.className = 'del'; del.textContent = '✕ 移出';
+    del.title = '从 story.refs 移除（不删文件）';
+    del.onclick = () => removeRef(r);
+    li.append(name, del);
+    ul.appendChild(li);
+  }
+}
+let story_refs = [];
+
+async function uploadRefs() {
+  if (!current) return;
+  const files = $('reffile').files;
+  if (!files.length) { $('ref-msg').textContent = '请先选择文件'; return; }
+  $('ref-msg').textContent = '上传中…';
+  for (const f of files) {
+    const fd = new FormData();
+    fd.append('file', f);
+    const r = await fetch(`/api/projects/${current}/refs`, {method:'POST', body: fd});
+    const d = await r.json();
+    if (!d.ok) { showErr(d); $('ref-msg').textContent = '失败'; return; }
+    log('ref uploaded: ' + d.data.filename);
+    // 新文件自动加进 story.refs（未满9张时）
+    if (story && !story.refs.includes(d.data.filename) && story.refs.length < 9) {
+      story.refs.push(d.data.filename);
+      await api(`/projects/${current}/story`, {method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({story})});
+    }
+  }
+  $('reffile').value = '';
+  $('ref-msg').textContent = '完成 ✓';
+  await loadStory();
+  await refreshRefs();
+}
+
+async function removeRef(name) {
+  if (!story) return;
+  story.refs = story.refs.filter(r => r !== name);
+  await api(`/projects/${current}/story`, {method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({story})});
+  await refreshRefs();
+  $('story-raw').value = JSON.stringify(story, null, 2);
+}
+
+// ---------------------------------------------------------------- 进度/操作
 
 async function refreshClips() {
   if (!current) return;
@@ -210,18 +434,23 @@ async function refreshClips() {
   box.innerHTML = '';
   for (const c of d.data.clips) {
     const row = document.createElement('div');
-    row.className = 'clip-row';
+    row.className = 'clip-card' + (c.validated ? ' locked' : '');
+    const head = document.createElement('div');
+    head.className = 'clip-head';
     const state = document.createElement('span');
-    state.className = 'state ' + (c.validated ? 'done' : 'pending');
+    state.className = 'st ' + (c.validated ? 'done' : 'pending');
     state.textContent = c.validated ? '✓ 已锁定' : '… 待处理';
     const id = document.createElement('span');
-    id.className = 'id'; id.textContent = c.id;
+    id.className = 'cid'; id.textContent = c.id;
     const dur = document.createElement('span');
-    dur.className = 'dur'; dur.textContent = c.duration + 's';
+    dur.className = 'hint'; dur.textContent = c.duration + 's · seed ' + c.seed;
+    const spacer = document.createElement('span');
+    spacer.className = 'spacer';
     const redo = document.createElement('button');
-    redo.textContent = 'redo';
+    redo.className = 'mini'; redo.textContent = 'redo';
     redo.onclick = () => doRedo(c.id);
-    row.append(state, id, dur, redo);
+    head.append(state, id, dur, spacer, redo);
+    row.appendChild(head);
     box.appendChild(row);
   }
   $('progress').textContent = '进度: ' + d.data.validated +
@@ -239,11 +468,10 @@ function openEvents() {
         `[${d.kind}] clip ${d.index}/${d.total} — ${d.clip}`;
       log(`progress: ${d.clip} (${d.index}/${d.total})`);
     } else if (d.type === 'done') {
-      log('done: ' + JSON.stringify(d));
+      log('done: ' + (d.message || JSON.stringify(d.files || '')));
       $('progress').textContent = '✓ 完成';
       refreshClips();
       if (d.files && d.files.length) playVideo(d.files[d.files.length - 1]);
-      if (d.clip) playVideoFileFor(d.clip);
     } else if (d.type === 'error') {
       showErr(d);
       $('progress').textContent = '✗ 出错';
@@ -253,18 +481,12 @@ function openEvents() {
   };
 }
 
-async function playVideoFileFor(clipId) {
-  // 播放最新产物（gen 单段产物就是最新文件）
-  const d = await api(`/projects/${current}/status`);
-  // outputs listing not exposed; use done.files if present
-}
-
 async function doGen() {
   if (!current) return;
   setBusy(true);
   const d = await api(`/projects/${current}/gen`, {method:'POST'});
   if (!d.ok) { showErr(d); setBusy(false); return; }
-  if (d.data.message === 'all clips validated' || d.data.next === 'export') {
+  if (d.data.next === 'export') {
     $('progress').textContent = '全部已验证，可直接导出';
     setBusy(false);
   }
@@ -276,6 +498,7 @@ async function doKeep() {
   const d = await api(`/projects/${current}/keep?clip=last`, {method:'POST'});
   if (!d.ok) { showErr(d); return; }
   log('keep: ' + d.data.kept + ' (' + d.data.validated + ')');
+  await loadStory();
   await refreshClips();
 }
 
@@ -285,6 +508,7 @@ async function doRedo(clipId) {
   const d = await api(`/projects/${current}/redo?clip=${clip}`, {method:'POST'});
   if (!d.ok) { showErr(d); return; }
   log(`redo: ${d.data.redone} seed→${d.data.new_seed} (后续 ${d.data.affected} 段作废)`);
+  await loadStory();
   await refreshClips();
 }
 
