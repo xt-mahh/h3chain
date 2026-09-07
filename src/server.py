@@ -362,9 +362,12 @@ def _find_artifacts(entry: dict) -> list:
     """Collect downloadable outputs from a finished history entry."""
     arts = []
     for node_out in entry.get("outputs", {}).values():
-        for key in ("videos", "gifs", "images"):
-            for item in node_out.get(key, []):
-                if item.get("filename"):
+        for key in ("videos", "gifs", "images", "h3_video"):
+            items = node_out.get(key, [])
+            if isinstance(items, dict):
+                items = [items]
+            for item in items:
+                if isinstance(item, dict) and item.get("filename"):
                     arts.append({**item, "kind": key})
     return arts
 
