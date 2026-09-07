@@ -30,7 +30,13 @@ from typing import Optional
 # ------------------------------------------------------------------ constants
 
 APP_DIR = Path(__file__).resolve().parent
-WEB_DIR = APP_DIR / "web"
+WEB_DIR = APP_DIR / "web" if (APP_DIR / "web").exists() else APP_DIR.parent / "web"
+
+
+def comfy_output_dir() -> str:
+    """ComfyUI output dir (default: /root/ComfyUI/output, override via env)."""
+    import os as _os
+    return _os.environ.get("H3CHAIN_COMFY_OUTPUT", "/root/ComfyUI/output")
 WORKSPACE = Path(os.environ.get("H3CHAIN_WORKSPACE", APP_DIR / "workspace"))
 COMFY_HOST = os.environ.get("H3CHAIN_COMFY_HOST", "127.0.0.1")
 COMFY_PORT = int(os.environ.get("H3CHAIN_COMFY_PORT", "6006"))
@@ -262,7 +268,7 @@ def _build_workflow(story: dict) -> dict:
         {"version": 1, "clips": story["clips"]}, ensure_ascii=False)
     width, height = story.get("resolution", [768, 1344])
     models = story.get("models") or {}
-    unet = models.get("unet", "minimax/minimax_h3_ref2va_pruned_int8_convrot.safetensors")
+    unet = models.get("unet", "minimax_h3_ref2va_pruned_int8_convrot.safetensors")
     lora = models.get("lora", "minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors")
     clip_model = models.get("clip", "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors")
     video_vae = models.get("video_vae", "minimax_h3_video_vae_fp16.safetensors")
@@ -297,6 +303,8 @@ def _build_workflow(story: dict) -> dict:
             "filename_prefix": story.get("prefix", "h3chain"),
             "codec": "H.264", "crf": 17, "preset": "veryfast",
             "audio_bitrate": "192k",
+            "output_directory": comfy_output_dir(),
+            "autoplay": False,
             "vae": ["7", 0], "audio_vae": ["8", 0]}},
     }
     for i, ref in enumerate(story.get("refs", [])[:MAX_REFS], start=1):
