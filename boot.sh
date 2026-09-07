@@ -86,9 +86,10 @@ if curl -sf http://127.0.0.1:6008/api/projects > /dev/null 2>&1; then
   log "h3chain already running on 6008"
 else
   log "starting h3chain on 6008..."
-  (cd "$H3CHAIN_DIR" && nohup python3 -m uvicorn server:app \
+  H3PY="$(command -v python3 || echo /root/miniconda3/bin/python3)"
+  (cd "$H3CHAIN_DIR/src" && setsid nohup "$H3PY" -m uvicorn server:app \
      --host 0.0.0.0 --port 6008 \
-     >> "$LOG_DIR/h3chain.log" 2>&1 &)
+     >> "$LOG_DIR/h3chain.log" 2>&1 < /dev/null &)
 fi
 
 # ---------------------------------------------------------- 4. wait for both
