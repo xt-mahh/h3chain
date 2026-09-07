@@ -359,28 +359,43 @@ def _submit_and_wait(workflow: dict, timeout: int, progress_cb=None) -> dict:
 
 
 def _find_artifacts(entry: dict) -> list:
-    """Collect downloadable outputs from a finished history entry."""
+    """Collect downloadable outputs from a finished history entry.
+
+    New Extender FinalDecode: h3_preview_info[0].autosave_path holds the
+    merged product path; h3_video is only a temp preview (type=temp).
+    Old outputs (videos/gifs) kept for compatibility.
+    """
     arts = []
     for node_out in entry.get("outputs", {}).values():
-        for key in ("videos", "gifs", "images", "h3_video"):
-            items = node_out.get(key, [])
-            if isinstance(items, dict):
-                items = [items]
-            for item in items:
+        # preferred: autosave_path (merged full-chain product)
+        for info in node_out.get("h3_preview_info", []):
+            path = info.get("autosave_path", "")
+            if path:
+                arts.append({"filename": Path(path).name, "subfolder": "",
+                             "type": "output", "kind": "autosave",
+                             "local_path": path})
+        for key in ("videos", "gifs", "images"):
+            for item in node_out.get(key, []):
                 if isinstance(item, dict) and item.get("filename"):
                     arts.append({**item, "kind": key})
+        # h3_video is temp-preview only: skip (autosave covers it)
     return arts
 
 
 def _download_artifacts(entry: dict, out_dir: Path) -> list:
-    """Download every artifact to {project}/output/ and return filenames."""
+    """Copy every artifact to {project}/output/ and return filenames."""
+    import shutil
     names = []
     for art in _find_artifacts(entry):
-        url = (f"http://{COMFY_HOST}:{COMFY_PORT}/view?filename={art['filename']}"
-               f"&subfolder={art.get('subfolder', '')}&type=output")
         dest = out_dir / art["filename"]
-        with urllib.request.urlopen(url, timeout=300) as r:
-            dest.write_bytes(r.read())
+        local = art.get("local_path", "")
+        if local and Path(local).exists():
+            shutil.copyfile(local, dest)
+        else:
+            url = (f"http://{COMFY_HOST}:{COMFY_PORT}/view?filename={art['filename']}"
+                   f"&subfolder={art.get('subfolder', '')}&type=output")
+            with urllib.request.urlopen(url, timeout=300) as r:
+                dest.write_bytes(r.read())
         names.append(art["filename"])
     return names
 
