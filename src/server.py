@@ -812,6 +812,19 @@ def api_events(project: str):
     return StreamingResponse(sse(), media_type="text/event-stream")
 
 
+@app.get("/api/projects/{project}/output")
+def api_list_output(project: str):
+    try:
+        pdir = _project_dir(project)
+    except H3ChainError as e:
+        return _api_error_response(e)
+    out_dir = pdir / "output"
+    files = sorted((f.name for f in out_dir.glob("*.mp4")),
+                   key=lambda n: (out_dir / n).stat().st_mtime) if out_dir.exists() else []
+    return {"ok": True, "data": {"files": files,
+                                 "latest": files[-1] if files else None}}
+
+
 @app.get("/api/projects/{project}/output/{file}")
 def api_download(project: str, file: str):
     try:

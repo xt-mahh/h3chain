@@ -232,7 +232,19 @@ async function selectProject(name) {
   await loadStory();
   await refreshRefs();
   await refreshClips();
+  await loadLatestOutput();
   openEvents();
+}
+
+async function loadLatestOutput() {
+  if (!current) return;
+  const d = await api(`/projects/${current}/output`);
+  if (d.ok && d.data.latest) {
+    playVideo(d.data.latest);
+  } else {
+    $('video').removeAttribute('src');
+    $('video').load();
+  }
 }
 
 // ---------------------------------------------------------------- story 表单
