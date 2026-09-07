@@ -263,7 +263,7 @@ def _build_workflow(story: dict) -> dict:
     width, height = story.get("resolution", [768, 1344])
     models = story.get("models") or {}
     unet = models.get("unet", "minimax/minimax_h3_ref2va_pruned_int8_convrot.safetensors")
-    lora = models.get("lora", "minimax/lightx2v-minimax_h3_fl2v_turbo_4step_v0.1.safetensors")
+    lora = models.get("lora", "minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors")
     clip_model = models.get("clip", "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors")
     video_vae = models.get("video_vae", "minimax_h3_video_vae_fp16.safetensors")
     audio_vae = models.get("audio_vae", "minimax_h3_audio_vae_fp32.safetensors")

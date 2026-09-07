@@ -37,22 +37,32 @@ link_model() {
   fi
 }
 
+PUB="/.autodl/Comfy-Org/MiniMax-H3"
 UNET_DIR="$COMFYUI_DIR/models/unet"
 LORA_DIR="$COMFYUI_DIR/models/loras"
 CLIP_DIR="$COMFYUI_DIR/models/text_encoders"
 VAE_DIR="$COMFYUI_DIR/models/vae"
 mkdir -p "$UNET_DIR" "$LORA_DIR" "$CLIP_DIR" "$VAE_DIR"
 
+# Public model store (verified 2026-09-07): AutoFS mount, Comfy-Org official
+# quantized pack. LoRA is NOT in the store — bundled in the image instead.
 link_model "$UNET_DIR/minimax_h3_ref2va_pruned_int8_convrot.safetensors" \
-           "/.autodl/public/models/minimax_h3_ref2va_pruned_int8_convrot.safetensors"
-link_model "$LORA_DIR/lightx2v-minimax_h3_fl2v_turbo_4step_v0.1.safetensors" \
-           "/.autodl/public/models/lightx2v-minimax_h3_fl2v_turbo_4step_v0.1.safetensors"
+           "$PUB/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors"
 link_model "$CLIP_DIR/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors" \
-           "/.autodl/public/models/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
+           "$PUB/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
 link_model "$VAE_DIR/minimax_h3_video_vae_fp16.safetensors" \
-           "/.autodl/public/models/minimax_h3_video_vae_fp16.safetensors"
+           "$PUB/vae/minimax_h3_video_vae_fp16.safetensors"
 link_model "$VAE_DIR/minimax_h3_audio_vae_fp32.safetensors" \
-           "/.autodl/public/models/minimax_h3_audio_vae_fp32.safetensors"
+           "$PUB/vae/minimax_h3_audio_vae_fp32.safetensors"
+# Turbo LoRA (DP decided 2026-09-07): ref2v-family v1.0 768p — matches the
+# ref2va_pruned UNet and the default 768x1344 resolution. Falls back to a
+# bundled copy of the legacy fl2v 4step v0.1 if the store entry disappears.
+if [ -e "/.autodl/77/0c/18/770c18b12a4560787c83d72aeea9b9d6" ]; then
+  link_model "$LORA_DIR/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors" \
+             "/.autodl/77/0c/18/770c18b12a4560787c83d72aeea9b9d6"
+fi
+link_model "$LORA_DIR/lightx2v-minimax_h3_fl2v_turbo_4step_v0.1.safetensors" \
+           "$H3CHAIN_DIR/models/lightx2v-minimax_h3_fl2v_turbo_4step_v0.1.safetensors"
 
 # ---------------------------------------------------------- 2. ComfyUI on 6006
 if [ "$DRY" = "1" ]; then
