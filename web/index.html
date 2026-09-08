@@ -22,7 +22,7 @@
   .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
   .grid {
     display: grid;
-    grid-template-columns: 250px minmax(420px, 1fr) 330px;
+    grid-template-columns: 1fr 2fr 1fr;
     gap: 14px; align-items: start;
   }
   .col-left, .col-mid, .col-right { min-width: 0; }
@@ -31,9 +31,12 @@
   .col-left .panel { margin: 0 !important; }
   .col-right { display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 32px); overflow-y: auto; }
   .col-right .panel { margin: 0 !important; flex-shrink: 0; }
-  .col-right #video { position: sticky; }
   .panel { background: var(--panel); border: 1px solid var(--border);
            border-radius: 8px; padding: 16px; }
+  #preview-video { width: 100%; border-radius: 6px; background: #000; display: block; }
+  #preview-meta { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .clip-card .timer { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .st.gen { color: #e6a700; } .st.error { color: #ff6b6b; }
   #editor-scroll {
     max-height: calc(100vh - 320px); overflow-y: auto;
     padding-right: 6px; border-radius: 6px;
@@ -126,8 +129,7 @@
     max-height: 130px; overflow-y: auto; font-family: ui-monospace, monospace;
     border-top: 1px dashed var(--border); padding-top: 8px;
   }
-  #video { width: 100%; margin-top: 12px; border-radius: 6px;
-           background: #000; max-height: 380px; }
+  #preview-video { width: 100%; border-radius: 6px; background: #000; display: block; max-height: 340px; }
   .hint { color: var(--muted); font-size: 12px; line-height: 1.6; }
   .err-box { color: var(--err); font-size: 12px; margin-top: 8px;
              white-space: pre-wrap; font-family: ui-monospace, monospace; }
@@ -169,8 +171,13 @@
     </div>
   </div>
 
-  <!-- 中栏：分段编辑 -->
+  <!-- 中栏：预览 + 分段编辑 -->
   <div class="col-mid">
+    <div class="panel" id="preview">
+      <h2>视频预览</h2>
+      <video id="preview-video" controls playsinline autoplay muted></video>
+      <div id="preview-meta">尚未生成 — 点击右侧「生成下一个片段」开始</div>
+    </div>
     <div class="panel">
       <h2>故事设置 <span class="hint" id="story-file"></span></h2>
       <div class="settings-row">
@@ -220,7 +227,6 @@
       <h2>片段进度</h2>
       <div class="clips" id="clips"></div>
       <div class="err-box" id="err"></div>
-      <video id="video" controls playsinline></video>
     </div>
   </div>
 </div>
@@ -233,6 +239,11 @@
 let current = null;     // 当前工程名
 let es = null;          // EventSource
 let story = null;       // 内存中的 story 对象（表单双向绑定）
+let playFile = null;    // 当前预览文件名
+let previewDuration = null;  // 累积时长（秒，来自 done 事件）
+let genClock = null;    // 生成中实时计时器 interval
+let genClockStart = null;    // 本次生成开始 epoch ms
+let lastStatusRow = null;    // 最近一次 status 响应的 clips 行
 
 const $ = id => document.getElementById(id);
 
@@ -298,9 +309,11 @@ async function loadLatestOutput() {
   const d = await api(`/projects/${current}/output`);
   if (d.ok && d.data.latest) {
     playVideo(d.data.latest);
+    updatePreviewMeta();
   } else {
-    $('video').removeAttribute('src');
-    $('video').load();
+    const v = $('preview-video');
+    v.removeAttribute('src'); v.load();
+    $('preview-meta').textContent = '尚未生成 — 点击右侧「生成下一个片段」开始';
   }
 }
 
@@ -337,8 +350,9 @@ function renderEditor() {
     const cid = document.createElement('span');
     cid.className = 'cid'; cid.textContent = c.id;
     const st = document.createElement('span');
-    st.className = 'st ' + (c.validated ? 'done' : 'pending');
-    st.textContent = c.validated ? '✓ 已锁定' : '… 待处理';
+    const stt = c.status || (c.validated ? 'locked' : 'pending');
+    st.className = 'st ' + (stt === 'locked' ? 'done' : stt === 'generated' || stt === 'generating' ? 'gen' : stt === 'error' ? 'error' : 'pending');
+    st.textContent = {pending: '… 待处理', generating: '⏳ 生成中', generated: '● 已生成·待审', error: '✗ 出错', locked: '✓ 已锁定'}[stt] || stt;
     const spacer = document.createElement('span');
     spacer.className = 'spacer';
     const durLabel = document.createElement('label');
@@ -517,26 +531,54 @@ async function refreshClips() {
   if (!current) return;
   const d = await api(`/projects/${current}/status`);
   if (!d.ok) { showErr(d); return; }
+  lastStatusRow = d.data.clips;
   const box = $('clips');
   box.innerHTML = '';
+  const STATE_TEXT = {pending: '… 待处理', generating: '⏳ 生成中',
+                      generated: '● 已生成·待审', error: '✗ 出错', locked: '✓ 已锁定'};
   for (const c of d.data.clips) {
+    const st = c.status || (c.validated ? 'locked' : 'pending');
     const row = document.createElement('div');
     row.className = 'clip-card' + (c.validated ? ' locked' : '');
     const head = document.createElement('div');
     head.className = 'clip-head';
     const state = document.createElement('span');
-    state.className = 'st ' + (c.validated ? 'done' : 'pending');
-    state.textContent = c.validated ? '✓ 已锁定' : '… 待处理';
+    state.className = 'st ' + (st === 'locked' ? 'done' : st === 'generated' ? 'gen' : st === 'error' ? 'error' : st === 'generating' ? 'gen' : 'pending');
+    state.textContent = STATE_TEXT[st] || st;
     const id = document.createElement('span');
     id.className = 'cid'; id.textContent = c.id;
     const dur = document.createElement('span');
-    dur.className = 'hint'; dur.textContent = c.duration + 's · seed ' + c.seed;
+    dur.className = 'hint';
+    let timing = c.duration + 's · seed ' + c.seed;
+    // final elapsed (B030/DP-105): shown once fixed
+    if (c.gen_duration_s != null && st !== 'generating') {
+      timing += ' · 用时 ' + fmtElapsed(c.gen_duration_s);
+    }
+    dur.textContent = timing;
+    head.append(state, id, dur);
+    // live timer for the generating clip (DP-105)
+    if (st === 'generating') {
+      const timer = document.createElement('span');
+      timer.className = 'timer';
+      timer.id = 'gen-timer';
+      const t0 = (c.gen_started_at != null) ? c.gen_started_at * 1000 : Date.now();
+      timer.textContent = fmtElapsed((Date.now() - t0) / 1000);
+      head.appendChild(timer);
+      genClockStart = t0;
+      if (genClock) clearInterval(genClock);
+      genClock = setInterval(() => {
+        if (genClockStart == null) return;
+        const el = $('gen-timer');
+        if (!el) { clearInterval(genClock); genClock = null; return; }
+        el.textContent = fmtElapsed((Date.now() - genClockStart) / 1000);
+      }, 1000);
+    }
     const spacer = document.createElement('span');
     spacer.className = 'spacer';
     const redo = document.createElement('button');
     redo.className = 'mini'; redo.textContent = 'redo';
     redo.onclick = () => doRedo(c.id);
-    head.append(state, id, dur, spacer, redo);
+    head.append(spacer, redo);
     row.appendChild(head);
     box.appendChild(row);
   }
@@ -552,18 +594,33 @@ function openEvents() {
     const d = JSON.parse(ev.data);
     if (d.type === 'progress') {
       $('progress').textContent =
-        `[${d.kind}] clip ${d.index}/${d.total} — ${d.clip}`;
-      log(`progress: ${d.clip} (${d.index}/${d.total})`);
+        `[${d.kind}] clip ${d.index}/${d.total} — ${d.clip}` +
+        (d.elapsed_s != null ? ` · ${fmtElapsed(d.elapsed_s)}` : '');
+      log(`progress: ${d.clip} (${d.index}/${d.total})` +
+          (d.elapsed_s != null ? ` ${d.elapsed_s}s` : ''));
+      // status refresh so the generating state shows (B029)
+      if (d.kind === 'gen' || d.kind === 'export') refreshClips();
     } else if (d.type === 'done') {
       log('done: ' + (d.message || JSON.stringify(d.files || '')));
-      $('progress').textContent = '✓ 完成';
+      $('progress').textContent = '✓ 完成' +
+        (d.gen_duration_s != null ? ` · 生成用时 ${fmtElapsed(d.gen_duration_s)}` : '');
+      if (genClock) { clearInterval(genClock); genClock = null; genClockStart = null; }
+      // full auto refresh (DP-103): latest video + duration + clip list
       refreshClips();
-      if (d.files && d.files.length) playVideo(d.files[d.files.length - 1]);
+      if (d.file) {
+        playVideo(d.file);
+        updatePreviewMeta(d.duration_s);
+      } else if (d.files && d.files.length) {
+        playVideo(d.files[d.files.length - 1]);
+      }
     } else if (d.type === 'error') {
       showErr(d);
       $('progress').textContent = '✗ 出错';
+      if (genClock) { clearInterval(genClock); genClock = null; genClockStart = null; }
+      refreshClips();
     } else if (d.type === 'task_started') {
       log('task started: ' + d.kind);
+      refreshClips();   // enter generating state immediately
     }
   };
 }
@@ -608,8 +665,29 @@ async function doExport() {
 }
 
 function playVideo(fname) {
-  $('video').src = `/api/projects/${current}/output/${encodeURIComponent(fname)}`;
-  $('video').play().catch(()=>{});
+  const v = $('preview-video');
+  // cache-busting timestamp query (B031/DP-103)
+  v.src = `/api/projects/${current}/output/${encodeURIComponent(fname)}?t=${Date.now()}`;
+  v.autoplay = true;
+  v.play().catch(()=>{});
+  playFile = fname;
+}
+
+function updatePreviewMeta(cumulativeS) {
+  const meta = $('preview-meta');
+  if (typeof cumulativeS === 'number' && cumulativeS > 0) {
+    previewDuration = cumulativeS;
+  }
+  if (playFile) {
+    const dur = previewDuration != null ? ` · 累积 ${previewDuration.toFixed(1)}s` : '';
+    meta.textContent = `正在播放：${playFile}${dur}`;
+  }
+}
+
+function fmtElapsed(s) {
+  s = Math.max(0, Math.round(s));
+  const m = Math.floor(s / 60), r = s % 60;
+  return `${m}:${String(r).padStart(2, '0')}`;
 }
 
 function setBusy(b) {

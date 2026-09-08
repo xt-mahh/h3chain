@@ -176,9 +176,11 @@ def _save_story(pdir: Path, story: dict) -> None:
             raise StoryLockError(
                 "write lock held",
                 "Another request is writing story.json. Retry in a moment.")
-        story_path.write_text(
+        tmp = story_path.with_suffix(".json.tmp")
+        tmp.write_text(
             json.dumps(story, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8")
+        tmp.replace(story_path)
     finally:
         try:
             fcntl.flock(lock, fcntl.LOCK_UN)
@@ -222,6 +224,33 @@ def _check_server() -> None:
             "Install ComfyUI_MiniMax_H3_Extender into ComfyUI/custom_nodes/ "
             "and restart ComfyUI. See: "
             "https://github.com/tritant/ComfyUI_MiniMax_H3_Extender")
+
+
+def _teacache_available() -> bool:
+    """Detect a TeaCache-class node registered in ComfyUI (B032)."""
+    try:
+        info = _comfy_request("GET", "/object_info", timeout=10)
+    except Exception:
+        return False
+    candidates = ("TeaCache", "TeaCacheForDiT")
+    for name in info:
+        if "teacache" in name.lower():
+            return True
+    return any(c in info for c in candidates)
+
+
+def _pick_teacache_class(info: dict | None = None) -> str | None:
+    """Return the registered TeaCache node class name for MODEL_PATCH type."""
+    try:
+        if info is None:
+            info = _comfy_request("GET", "/object_info", timeout=10)
+    except Exception:
+        return None
+    for name in info:
+        low = name.lower()
+        if "teacache" in low and ("model" in low or "dit" in low):
+            return name
+    return None
 
 
 def _upload_ref_to_comfy(ref_path: Path) -> None:
@@ -314,6 +343,14 @@ def _build_workflow(story: dict) -> dict:
             "autoplay": False,
             "vae": ["7", 0], "audio_vae": ["8", 0]}},
     }
+    # TeaCache acceleration (DP-101/B032): insert after SageAttention when
+    # enabled AND a TeaCache-class node is actually registered. Missing node
+    # degrades silently to the v0.2.1 chain.
+    if story.get("teacache", True):
+        tc_class = _pick_teacache_class()
+        if tc_class:
+            prompt["4b"] = {"class_type": tc_class, "inputs": {"model": ["4", 0]}}
+            prompt["10"]["inputs"]["model"] = ["4b", 0]
     return {"prompt": prompt}
 
 
@@ -466,6 +503,31 @@ TASKS = TaskState()
 
 def _run_gen(project: str, pdir: Path, target_all: bool = False):
     """Background thread: generate next unvalidated clip (or all, for export)."""
+    def _set_clip_state(story: dict, clip_id: str, **fields) -> None:
+        """Persist per-clip status/timing fields (B029/B030)."""
+        for c in story["clips"]:
+            if c["id"] == clip_id:
+                c.update(fields)
+                return
+
+    def _clip_status(story: dict, c: dict) -> str:
+        """Derive five-state status (B029): status field wins; validated
+        boolean back-fills for legacy projects without status."""
+        s = c.get("status")
+        if s in ("pending", "generating", "generated", "error", "locked"):
+            return s
+        return "locked" if c.get("validated") else "pending"
+
+    def _cumulative_duration() -> float:
+        """Sum durations of clips up to and including the first non-validated."""
+        story = _load_story(pdir)
+        total = 0.0
+        for c in story["clips"]:
+            total += float(c.get("duration", 0) or 0)
+            if not c.get("validated"):
+                break
+        return round(total, 3)
+
     try:
         story = _load_story(pdir)
         out_dir = pdir / "output"
@@ -487,6 +549,7 @@ def _run_gen(project: str, pdir: Path, target_all: bool = False):
                 _download_artifacts(entry, out_dir)
                 # mark validated after successful generation (DP-007)
                 story["clips"][idx]["validated"] = True
+                story["clips"][idx]["status"] = "locked"   # B029
                 _save_story(pdir, story)
             # Final merge decode
             story = _load_story(pdir)
@@ -506,14 +569,40 @@ def _run_gen(project: str, pdir: Path, target_all: bool = False):
         clip = pending[0]
         idx = story["clips"].index(clip)
         total = len(story["clips"])
+        # B029: back-fill persisted five-state for legacy/clips lacking status
+        for c in story["clips"]:
+            if _clip_status(story, c) != c.get("status"):
+                c["status"] = _clip_status(story, c)
+        # B029: mark generating + B030: record start before submitting
+        _set_clip_state(story, clip["id"], status="generating",
+                        gen_started_at=time.time())
+        _save_story(pdir, story)
         TASKS.push(project, {"type": "progress", "kind": "gen",
-                             "clip": clip["id"], "index": idx + 1, "total": total})
-        entry = _submit_and_wait(_build_workflow(story), TIMEOUT)
-        _download_artifacts(entry, out_dir)
+                             "clip": clip["id"], "index": idx + 1,
+                             "total": total, "elapsed_s": 0.0})
+        t0 = time.time()
+        try:
+            entry = _submit_and_wait(_build_workflow(story), TIMEOUT)
+            names = _download_artifacts(entry, out_dir)
+        except Exception:
+            story = _load_story(pdir)
+            _set_clip_state(story, clip["id"], status="error",
+                            gen_duration_s=round(time.time() - t0, 1))
+            _save_story(pdir, story)
+            raise
+        # B029/B030: success -> generated with duration recorded (>0 per B030)
+        story = _load_story(pdir)
+        gen_dur = round(max(time.time() - t0, 0.001), 3)
+        _set_clip_state(story, clip["id"], status="generated",
+                        gen_duration_s=gen_dur)
+        _save_story(pdir, story)
         TASKS.finish(project, {
             "message": f"clip {clip['id']} generated (not validated yet)",
             "next": "keep or redo",
-            "clip": clip["id"]})
+            "clip": clip["id"],
+            "file": names[-1] if names else None,
+            "duration_s": _cumulative_duration(),
+            "gen_duration_s": gen_dur})
     except H3ChainError as e:
         TASKS.fail(project, e.message, e.detail)
     except TimeoutError as e:
@@ -706,6 +795,7 @@ def api_keep(project: str, clip: Optional[str] = None):
                         f"Clips before '{clip}' are not all validated. "
                         f"Keep them first, or keep clips in order." )
         target["validated"] = True
+        target["status"] = "locked"   # B029: keep -> locked
         _save_story(pdir, story)
         validated_count = sum(1 for c in story["clips"] if c.get("validated"))
         total = len(story["clips"])
@@ -747,6 +837,7 @@ def api_redo(project: str, clip: Optional[str] = None, seed: Optional[int] = Non
                 new_seed = random.randint(1, 10**9)
         for c in affected:
             c["validated"] = False
+            c["status"] = "pending"   # B029: redo tail -> pending
         target["seed"] = new_seed
         _save_story(pdir, story)
         return {"ok": True, "data": {
@@ -769,8 +860,18 @@ def api_status(project: str):
     total = len(story["clips"])
     validated_count = sum(1 for c in story["clips"] if c.get("validated"))
     pending = [c for c in story["clips"] if not c.get("validated")]
+
+    def _status_of(c: dict) -> str:
+        s = c.get("status")
+        if s in ("pending", "generating", "generated", "error", "locked"):
+            return s
+        return "locked" if c.get("validated") else "pending"
+
     clips_view = [{"id": c["id"], "duration": c.get("duration"),
-                   "seed": c.get("seed"), "validated": bool(c.get("validated"))}
+                   "seed": c.get("seed"), "validated": bool(c.get("validated")),
+                   "status": _status_of(c),
+                   "gen_started_at": c.get("gen_started_at"),
+                   "gen_duration_s": c.get("gen_duration_s")}
                   for c in story["clips"]]
     task = TASKS.snapshot_active(project)
     return {"ok": True, "data": {

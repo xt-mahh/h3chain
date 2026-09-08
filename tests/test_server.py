@@ -732,3 +732,5 @@ def test_submission_http_error_detail(client, monkeypatch):
         server._comfy_request("POST", "/prompt", {"prompt": {}})
     assert "HTTP 500" in ei.value.message
     assert "boom-from-comfy" in ei.value.detail
+
+

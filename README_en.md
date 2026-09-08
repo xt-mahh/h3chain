@@ -29,6 +29,12 @@ On top of the Extender, this web layer fills in the "easy to use" part:
   validation and concurrent-write protection
 - **Per-clip polishing loop**: generate → watch → keep/redo; redo rotates
   the seed automatically, never silently hitting the Extender disk cache
+- **Five-state clip machine** (v0.3.0): pending / generating / generated /
+  error / locked, with per-clip generation time recorded and restored on
+  page load.
+- **Auto-preview on completion** (v0.3.0): done-event driven — the latest
+  chain output refreshes and plays automatically, cumulative duration and
+  clip list update with zero clicks.
 - **Resumable export**: locked clips come back from cache in seconds
   (you only pay for the clips you reject); export fills the gaps and
   merges the chain.

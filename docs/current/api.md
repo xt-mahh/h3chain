@@ -22,6 +22,10 @@ with a simple web frontend. Runs on port 6008 next to ComfyUI on 6006.
 | POST | /api/projects/{p}/export | fill missing clips then FinalDecode merge |
 | GET  | /api/projects/{p}/events | SSE stream: progress / heartbeat / done / error |
 | GET  | /api/projects/{p}/output/{file} | download generated mp4 |
+| GET  | /api/projects/{p}/output | list output artifacts (mtime desc, for UI auto-preview) |
+| GET  | /api/projects/{p}/refs | list uploaded reference images (UI thumbnails) |
+| GET  | /api/projects/{p}/refs/{file} | serve reference image binary (UI preview modal) |
+| DELETE | /api/projects/{p} | delete project directory (story/refs/output) |
 
 ## Error types (ApiResponse.error)
 
@@ -65,3 +69,7 @@ MiniMaxH3MotionContextDiskFinalDecode.
 | `api_export` | POST /api/projects/{p}/export |
 | `api_events` | GET /api/projects/{p}/events |
 | `api_download` | GET /api/projects/{p}/output/{file} |
+| `api_list_output` | GET /api/projects/{p}/output |
+| `api_list_refs` | GET /api/projects/{p}/refs |
+| `api_view_ref` | GET /api/projects/{p}/refs/{file} |
+| `api_delete_project` | DELETE /api/projects/{p} |
