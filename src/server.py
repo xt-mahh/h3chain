@@ -303,6 +303,7 @@ def _build_workflow(story: dict) -> dict:
     video_vae = models.get("video_vae", "minimax_h3_video_vae_fp16.safetensors")
     audio_vae = models.get("audio_vae", "minimax_h3_audio_vae_fp32.safetensors")
 
+    refs = story.get("refs", [])[:9]
     prompt = {
         "1": {"class_type": "UNETLoader", "inputs": {
             "unet_name": unet, "weight_dtype": "default"}},
@@ -312,6 +313,8 @@ def _build_workflow(story: dict) -> dict:
             "lora_name": lora, "strength_model": 1.0, "model": ["2", 0]}},
         "4": {"class_type": "PathchSageAttentionKJ", "inputs": {
             "sage_attention": "auto", "model": ["3", 0]}},
+        "4a": {"class_type": "MiniMaxH3MemoryEfficientSageAttentionPatch", "inputs": {
+            "model": ["4", 0]}},
         "6": {"class_type": "CLIPLoader", "inputs": {
             "clip_name": clip_model, "type": "minimax"}},
         "7": {"class_type": "VAELoader", "inputs": {"vae_name": video_vae}},
@@ -332,7 +335,9 @@ def _build_workflow(story: dict) -> dict:
                  + [None] * max(0, 9 - len(story.get("refs", [])[:9]))},
                 ensure_ascii=False),
             "generation_mode": "ref2va",
-            "model": ["4", 0], "clip": ["6", 0],
+            "ref_pack": ["9", 0],
+            "model": ["4a", 0],
+            "clip": ["6", 0],
             "vae": ["7", 0], "audio_vae": ["8", 0]}},
         "11": {"class_type": "MiniMaxH3MotionContextDiskFinalDecode", "inputs": {
             "cache": ["10", 0], "fps": 24.0,
@@ -343,14 +348,30 @@ def _build_workflow(story: dict) -> dict:
             "autoplay": False,
             "vae": ["7", 0], "audio_vae": ["8", 0]}},
     }
+    # External image-reference path (DP-006 fix): refs_json only accepts
+    # content-addressed descriptors, so plain filenames die in
+    # _normalize_ref_descriptor. Route each uploaded ref through LoadImage ->
+    # ReferencePackBridge -> Extender.ref_pack; the Extender imports connected
+    # slots into its internal store on every Queue (stable Ref N = Picture N).
+    for i, ref in enumerate(refs, start=1):
+        prompt[f"20{i}"] = {"class_type": "LoadImage", "inputs": {
+            "image": ref}}
+    bridge_inputs = {
+        f"ref_{i}": [f"20{i}", 0]
+        for i in range(1, len(refs) + 1)
+    }
+    prompt["9"] = {"class_type": "MiniMaxH3ReferencePackBridge", "inputs": bridge_inputs}
     # TeaCache acceleration (DP-101/B032): insert after SageAttention when
     # enabled AND a TeaCache-class node is actually registered. Missing node
     # degrades silently to the v0.2.1 chain.
     if story.get("teacache", True):
         tc_class = _pick_teacache_class()
         if tc_class:
-            prompt["4b"] = {"class_type": tc_class, "inputs": {"model": ["4", 0]}}
+            prompt["4b"] = {"class_type": tc_class, "inputs": {"model": ["4a", 0]}}
             prompt["10"]["inputs"]["model"] = ["4b", 0]
+        else:
+            # no TeaCache available: Extender reads the memory-efficient patch
+            prompt["10"]["inputs"]["model"] = ["4a", 0]
     return {"prompt": prompt}
 
 
@@ -814,12 +835,19 @@ def api_redo(project: str, clip: Optional[str] = None, seed: Optional[int] = Non
         story = _load_story(pdir)
         clip_ids = [c["id"] for c in story["clips"]]
         if clip is None or clip == "last":
+            # 'last' = the clip the user just worked on: latest generated or
+            # errored clip wins; fall back to the last pending clip; finally
+            # the very last clip (all locked = pure tail redo).
             pending = [c for c in story["clips"] if not c.get("validated")]
-            if not pending:
-                # nothing pending: redo the last clip (B006 'last' resolution)
-                target = story["clips"][-1]
+            generated = [c for c in story["clips"]
+                         if c.get("status") in ("generated", "error")]
+            if generated:
+                target = generated[-1]
             else:
-                target = pending[-1]
+                # nothing generated/errored: redo the most recently locked clip
+                # (the one just kept), not a never-generated tail clip.
+                locked = [c for c in story["clips"] if c.get("validated")]
+                target = locked[-1] if locked else story["clips"][-1]
         else:
             if clip not in clip_ids:
                 raise ClipNotFoundError(
@@ -936,8 +964,21 @@ def api_list_refs(project: str):
     except H3ChainError as e:
         return _api_error_response(e)
     refs_dir = pdir / "refs"
-    files = sorted(f.name for f in refs_dir.glob("*")
-                   if f.suffix.lower() in (".png", ".jpg", ".jpeg")) if refs_dir.exists() else []
+    on_disk = sorted(f.name for f in refs_dir.glob("*")
+                     if f.suffix.lower() in (".png", ".jpg", ".jpeg")) if refs_dir.exists() else []
+    # Order = story.refs order (this is the order the generation pipeline maps
+    # to <Picture 1..N>); files not yet in story.refs go last, alphabetical.
+    try:
+        story_refs = _load_story(pdir).get("refs", [])
+    except H3ChainError:
+        story_refs = []
+    ordered = [r for r in story_refs if r in on_disk]
+    ordered += [f for f in on_disk if f not in ordered]
+    files = [
+        {"name": f,
+         "picture": story_refs.index(f) + 1 if f in story_refs else None}
+        for f in ordered
+    ]
     return {"ok": True, "data": {"files": files}}
 
 

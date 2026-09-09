@@ -446,7 +446,7 @@ async function saveRaw() {
 async function refreshRefs() {
   if (!current) return;
   const d = await api(`/projects/${current}/refs`);
-  const files = d.ok ? d.data.files : [];
+  const files = d.ok ? d.data.files : [];   // [{name, picture}] — story.refs order
   const ds = await api(`/projects/${current}/story`);
   story_refs = ds.ok ? (ds.data.story.refs || []) : [];
   if (story) story.refs = story_refs;
@@ -458,7 +458,8 @@ async function refreshRefs() {
     ul.appendChild(li);
     return;
   }
-  for (const f of files) {
+  for (const item of files) {
+    const f = item.name;
     const li = document.createElement('li');
     const thumb = document.createElement('img');
     thumb.className = 'thumb';
@@ -467,12 +468,13 @@ async function refreshRefs() {
     const info = document.createElement('span');
     info.style.flex = '1';
     const nameEl = document.createElement('div');
-    nameEl.textContent = f;
+    nameEl.title = f;   // 悬浮看全名
+    nameEl.textContent = f.length > 21 ? f.slice(0, 18) + '…' : f;
     const used = story_refs.includes(f);
     const usedEl = document.createElement('div');
     usedEl.style.fontSize = '11px';
     usedEl.style.color = used ? 'var(--ok)' : 'var(--warn)';
-    usedEl.textContent = used ? '✓ 在 story.refs' : '未使用';
+    usedEl.textContent = (item.picture ? `Picture ${item.picture} · ` : '') + (used ? '✓ 在 story.refs' : '未使用');
     info.append(nameEl, usedEl);
     const del = document.createElement('span');
     del.className = 'del'; del.textContent = '✕';
@@ -604,6 +606,7 @@ function openEvents() {
       log('done: ' + (d.message || JSON.stringify(d.files || '')));
       $('progress').textContent = '✓ 完成' +
         (d.gen_duration_s != null ? ` · 生成用时 ${fmtElapsed(d.gen_duration_s)}` : '');
+      setBusy(false);   // re-enable button: a done task frees the queue
       if (genClock) { clearInterval(genClock); genClock = null; genClockStart = null; }
       // full auto refresh (DP-103): latest video + duration + clip list
       refreshClips();
@@ -616,6 +619,7 @@ function openEvents() {
     } else if (d.type === 'error') {
       showErr(d);
       $('progress').textContent = '✗ 出错';
+      setBusy(false);   // re-enable button: failed task also frees the queue
       if (genClock) { clearInterval(genClock); genClock = null; genClockStart = null; }
       refreshClips();
     } else if (d.type === 'task_started') {
@@ -648,7 +652,17 @@ async function doKeep() {
 
 async function doRedo(clipId) {
   if (!current) return;
-  const clip = clipId || 'last';
+  let clip = clipId;
+  if (!clip && Array.isArray(lastStatusRow)) {
+    // no explicit clip: prefer the latest generated/errored clip (the one the
+    // user just saw), else the most recently locked one (just kept).
+    const gen = lastStatusRow.filter(c => c.status === 'generated' || c.status === 'error');
+    const locked = lastStatusRow.filter(c => c.validated);
+    clip = (gen.length ? gen[gen.length-1]
+            : locked.length ? locked[locked.length-1]
+            : lastStatusRow[lastStatusRow.length-1]).id;
+  }
+  if (!clip) clip = 'last';
   const d = await api(`/projects/${current}/redo?clip=${clip}`, {method:'POST'});
   if (!d.ok) { showErr(d); return; }
   log(`redo: ${d.data.redone} seed→${d.data.new_seed} (后续 ${d.data.affected} 段作废)`);
